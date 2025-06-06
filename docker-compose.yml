@@ -4,21 +4,20 @@ services:
     image: heartexlabs/label-studio:latest
     restart: unless-stopped
     ports:
-      - "8080:8085"
-      - "8081:8086"
+      - "80:8085"    # Map host port 80 to container port 8085
+      - "8081:8086"  # Map host port 8081 to container port 8086
     depends_on:
       - app
     environment:
       - LABEL_STUDIO_HOST=${LABEL_STUDIO_HOST:-}
-    #   Optional: Specify SSL termination certificate & key
-    #   Just drop your cert.pem and cert.key into folder 'deploy/nginx/certs'
-    #      - NGINX_SSL_CERT=/certs/cert.pem
-    #      - NGINX_SSL_CERT_KEY=/certs/cert.key
+      # Optional SSL cert environment variables commented out
+      # - NGINX_SSL_CERT=/certs/cert.pem
+      # - NGINX_SSL_CERT_KEY=/certs/cert.key
     volumes:
       - ./mydata:/label-studio/data:rw
       - ./deploy/nginx/certs:/certs:ro
-    #   Optional: Override nginx default conf
-    #      - ./deploy/my.conf:/etc/nginx/nginx.conf
+      # Optional nginx config override commented out
+      # - ./deploy/my.conf:/etc/nginx/nginx.conf
     command: nginx
 
   app:
@@ -28,7 +27,7 @@ services:
     image: heartexlabs/label-studio:latest
     restart: unless-stopped
     expose:
-      - "8000"
+      - "8000"  # Port exposed internally (not published to host)
     depends_on:
       - db
     environment:
@@ -40,7 +39,7 @@ services:
       - POSTGRE_HOST=db
       - LABEL_STUDIO_HOST=${LABEL_STUDIO_HOST:-}
       - JSON_LOG=1
-    #      - LOG_LEVEL=DEBUG
+      # - LOG_LEVEL=DEBUG
     volumes:
       - ./mydata:/label-studio/data:rw
     command: label-studio-uwsgi
@@ -49,13 +48,11 @@ services:
     image: pgautoupgrade/pgautoupgrade:13-alpine
     hostname: db
     restart: unless-stopped
-    # Optional: Enable TLS on PostgreSQL
-    # Just drop your server.crt and server.key into folder 'deploy/pgsql/certs'
-    # NOTE: Both files must have permissions u=rw (0600) or less
-    #    command: >
-    #      -c ssl=on
-    #      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
-    #      -c ssl_key_file=/var/lib/postgresql/certs/server.key
+    # Optional TLS configs commented out
+    # command: >
+    #   -c ssl=on
+    #   -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
+    #   -c ssl_key_file=/var/lib/postgresql/certs/server.key
     environment:
       - POSTGRES_HOST_AUTH_METHOD=trust
       - POSTGRES_USER=postgres
