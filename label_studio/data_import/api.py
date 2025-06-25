@@ -435,9 +435,18 @@ class ReImportAPI(ImportAPI):
 
     def sync_reimport(self, project, file_upload_ids, files_as_tasks_list):
         start = time.time()
-        tasks, found_formats, data_columns = FileUpload.load_tasks_from_uploaded_files(
+        
+        # Handle the case where load_tasks_from_uploaded_files might return labels
+        result = FileUpload.load_tasks_from_uploaded_files(
             project, file_upload_ids, files_as_tasks_list=files_as_tasks_list
         )
+        
+        # Unpack the result - it might be 3 or 4 elements
+        if len(result) == 4:
+            tasks, found_formats, data_columns, labels = result
+        else:
+            tasks, found_formats, data_columns = result
+            labels = None
 
         with transaction.atomic():
             project.remove_tasks_by_file_uploads(file_upload_ids)
@@ -466,16 +475,23 @@ class ReImportAPI(ImportAPI):
         project.summary.update_data_columns(tasks)
         # TODO: project.summary.update_created_annotations_and_labels
 
+        # Prepare response data
+        response_data = {
+            'task_count': task_count,
+            'annotation_count': annotation_count,
+            'prediction_count': prediction_count,
+            'duration': duration,
+            'file_upload_ids': file_upload_ids,
+            'found_formats': found_formats,
+            'data_columns': data_columns,
+        }
+        
+        # Include labels in response if they exist
+        if labels is not None:
+            response_data['labels'] = labels
+
         return Response(
-            {
-                'task_count': task_count,
-                'annotation_count': annotation_count,
-                'prediction_count': prediction_count,
-                'duration': duration,
-                'file_upload_ids': file_upload_ids,
-                'found_formats': found_formats,
-                'data_columns': data_columns,
-            },
+            response_data,
             status=status.HTTP_201_CREATED,
         )
 

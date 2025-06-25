@@ -16,6 +16,7 @@ from django.conf import settings
 from django.db import models
 from django.utils.functional import cached_property
 from rest_framework.exceptions import ValidationError
+from label_studio_sdk.converter.imports.coco import convert_coco_to_ls
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,8 @@ def upload_name_generator(instance, filename):
     project = str(instance.project_id)
     project_dir = os.path.join(settings.MEDIA_ROOT, settings.UPLOAD_DIR, project)
     os.makedirs(project_dir, exist_ok=True)
-    path = settings.UPLOAD_DIR + '/' + project + '/' + str(uuid.uuid4())[0:8] + '-' + filename
+    path = settings.UPLOAD_DIR + '/' + project + '/' + filename
+    #path = settings.UPLOAD_DIR + '/' + project + '/' + str(uuid.uuid4())[0:8] + '-' + filename
     return path
 
 
@@ -91,14 +93,34 @@ class FileUpload(models.Model):
     def read_tasks_list_from_json(self):
         logger.debug('Read tasks list from JSON file {}'.format(self.filepath))
 
+        tasks = None
+        labels = None
         raw_data = self.content
         # Python 3.5 compatibility fix https://docs.python.org/3/whatsnew/3.6.html#json
         try:
             tasks = json.loads(raw_data)
         except TypeError:
             tasks = json.loads(raw_data.decode('utf8'))
+        
+        if isinstance(tasks, dict) and 'images' in tasks and 'annotations' in tasks:
+            input_annotation_file = self.file.path 
+            output_annotation_file = os.path.splitext(input_annotation_file)[0] + "_ls" + os.path.splitext(input_annotation_file)[1]
+            convert_coco_to_ls(input_file = self.file.path, \
+                               out_file = output_annotation_file)#, \
+                               #image_root_url="/data"+os.path.dirname(self.file.path).split('media')[1])
+            
+            with open(output_annotation_file) as annotation_data:
+                try:
+                    tasks = json.load(annotation_data)
+                except TypeError:
+                    tasks = json.load(annotation_data.decode('utf8'))
+
+            with open(output_annotation_file.replace(".json", "") + ".label_config.xml") as label_data:
+                labels = label_data.read()       
+        
         if isinstance(tasks, dict):
             tasks = [tasks]
+        
         tasks_formatted = []
         for i, task in enumerate(tasks):
             if not task.get('data'):
@@ -106,7 +128,11 @@ class FileUpload(models.Model):
             if not isinstance(task['data'], dict):
                 raise ValidationError('Task item should be dict')
             tasks_formatted.append(task)
-        return tasks_formatted
+        
+        if labels:
+            return (tasks_formatted, labels)
+        else:
+            return tasks_formatted
 
     def read_task_from_hypertext_body(self):
         logger.debug('Read 1 task from hypertext file {}'.format(self.filepath))
@@ -162,6 +188,7 @@ class FileUpload(models.Model):
     ):
         tasks = []
         fileformats = []
+        labels = []
         common_data_fields = set()
 
         # scan all files
@@ -172,7 +199,18 @@ class FileUpload(models.Model):
             file_format = file_upload.format
             if formats and file_format not in formats:
                 continue
-            new_tasks = file_upload.read_tasks(files_as_tasks_list)
+            
+            # Handle the case where read_tasks might return a tuple (for JSON) or just tasks (for other formats)
+            result = file_upload.read_tasks(files_as_tasks_list)
+            if isinstance(result, tuple) and len(result) == 2:
+                # JSON format: returns (tasks, label)
+                new_tasks, label = result
+                labels.append(label)
+            else:
+                # Other formats: returns just tasks
+                new_tasks = result
+                labels.append(None)  # No label for non-JSON formats
+
             for task in new_tasks:
                 task['file_upload_id'] = file_upload.id
 
@@ -195,7 +233,11 @@ class FileUpload(models.Model):
                 if len(tasks) > trim_size:
                     break
 
-        return tasks, dict(Counter(fileformats)), common_data_fields
+        # Return labels only if there are any non-None labels (i.e., JSON files were processed)
+        if any(label is not None for label in labels):
+            return tasks, dict(Counter(fileformats)), common_data_fields, labels
+        else:
+            return tasks, dict(Counter(fileformats)), common_data_fields
 
 
 def _old_vs_new_data_keys_inconsistency_message(new_data_keys, old_data_keys, current_file):

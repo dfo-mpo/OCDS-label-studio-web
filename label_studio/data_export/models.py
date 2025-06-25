@@ -147,7 +147,6 @@ class DataExport(object):
 
         Be sure to close the file after using it, to avoid wasting disk space.
         """
-
         # prepare for saving
         now = datetime.now()
         data = json.dumps(tasks, ensure_ascii=False)
@@ -155,6 +154,9 @@ class DataExport(object):
         name = 'project-' + str(project.id) + '-at-' + now.strftime('%Y-%m-%d-%H-%M') + f'-{md5[0:8]}'
 
         input_json = DataExport.save_export_files(project, now, get_args, data, md5, name)
+        
+        print(f"DEBUG: converter configs: {project.get_parsed_config()}")
+        print(f"DEBUG: upload_dir: {os.path.join(settings.MEDIA_ROOT, settings.UPLOAD_DIR)}")
 
         converter = Converter(
             config=project.get_parsed_config(),
@@ -164,9 +166,29 @@ class DataExport(object):
             access_token=project.organization.created_by.auth_token.key,
             hostname=hostname,
         )
+
         with get_temp_dir() as tmp_dir:
             converter.convert(input_json, tmp_dir, output_format, is_dir=False)
             files = get_all_files_from_dir(tmp_dir)
+            
+            if (output_format == 'COCO' or output_format == 'COCO_WITH_IMAGES'):
+                json_file = [f for f in os.listdir(tmp_dir) if f.endswith('.json')][0]
+                json_path = os.path.join(tmp_dir, json_file)                
+
+                with open(json_path, 'r') as f:
+                    data = json.load(f)
+
+                # Process each image file_name
+                for image in data['images']:
+                    # Extract just the filename from the full path
+                    original_file_name = image['file_name']
+                    file_name_only = os.path.basename(original_file_name)
+                    image['file_name'] = "{}".format(file_name_only)
+
+                # Save the updated JSON
+                with open(json_path, 'w') as f:
+                    json.dump(data, f, indent=2)
+            
             # if only one file is exported - no need to create archive
             if len(os.listdir(tmp_dir)) == 1:
                 output_file = files[0]
@@ -175,7 +197,7 @@ class DataExport(object):
                 out = path_to_open_binary_file(output_file)
                 filename = name + os.path.splitext(output_file)[-1]
                 return out, content_type, filename
-
+                        
             # otherwise pack output directory into archive
             shutil.make_archive(tmp_dir, 'zip', tmp_dir)
             out = path_to_open_binary_file(os.path.abspath(tmp_dir + '.zip'))

@@ -147,9 +147,17 @@ def async_reimport_background(reimport_id, organization_id, user, **kwargs):
 
     project = reimport.project
 
-    tasks, found_formats, data_columns = FileUpload.load_tasks_from_uploaded_files(
-        reimport.project, reimport.file_upload_ids, files_as_tasks_list=reimport.files_as_tasks_list
+    # Handle the case where load_tasks_from_uploaded_files might return labels
+    result = FileUpload.load_tasks_from_uploaded_files(
+        project, file_upload_ids, files_as_tasks_list=files_as_tasks_list
     )
+    
+    # Unpack the result - it might be 3 or 4 elements
+    if len(result) == 4:
+        tasks, found_formats, data_columns, labels = result
+    else:
+        tasks, found_formats, data_columns = result
+        labels = None
 
     with transaction.atomic():
         # Lock summary for update to avoid race conditions
@@ -191,6 +199,11 @@ def async_reimport_background(reimport_id, organization_id, user, **kwargs):
     reimport.found_formats = found_formats
     reimport.data_columns = list(data_columns)
     reimport.status = ProjectReimport.Status.COMPLETED
+
+    # Include labels in response if they exist
+    if labels is not None:
+        reimport.labels = labels
+
     reimport.save()
 
     post_process_reimport(reimport)

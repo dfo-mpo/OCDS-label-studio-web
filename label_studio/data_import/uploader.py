@@ -162,7 +162,14 @@ def tasks_from_url(file_upload_ids, project, user, url, could_be_tasks_list):
         if file_upload.format_could_be_tasks_list:
             could_be_tasks_list = True
         file_upload_ids.append(file_upload.id)
-        tasks, found_formats, data_keys = FileUpload.load_tasks_from_uploaded_files(project, file_upload_ids)
+
+        result = FileUpload.load_tasks_from_uploaded_files(project, file_upload_ids)
+
+        if len(result) == 4:
+            tasks, found_formats, data_keys, _ = result
+
+        else:
+            tasks, found_formats, data_keys = result
 
     except ValidationError as e:
         raise e
@@ -193,9 +200,13 @@ def load_tasks_for_async_import(project_import, user):
 
     if project_import.file_upload_ids:
         file_upload_ids = project_import.file_upload_ids
-        tasks, found_formats, data_keys = FileUpload.load_tasks_from_uploaded_files(
-            project_import.project, file_upload_ids
-        )
+        result = FileUpload.load_tasks_from_uploaded_files(project, file_upload_ids)
+
+        if len(result) == 4:
+            tasks, found_formats, data_keys, _ = result
+
+        else:
+            tasks, found_formats, data_keys = result
 
     # take tasks from url address
     elif project_import.url:
@@ -209,9 +220,13 @@ def load_tasks_for_async_import(project_import, user):
                 SimpleUploadedFile('inplace.json', url.encode()),
             )
             file_upload_ids.append(file_upload.id)
-            tasks, found_formats, data_keys = FileUpload.load_tasks_from_uploaded_files(
-                project_import.project, file_upload_ids
-            )
+            result = FileUpload.load_tasks_from_uploaded_files(project, file_upload_ids)
+
+            if len(result) == 4:
+                tasks, found_formats, data_keys, _ = result
+
+            else:
+                tasks, found_formats, data_keys = result
 
         # download file using url and read tasks from it
         else:
@@ -256,7 +271,13 @@ def load_tasks(request, project):
             if file_upload.format_could_be_tasks_list:
                 could_be_tasks_list = True
             file_upload_ids.append(file_upload.id)
-        tasks, found_formats, data_keys = FileUpload.load_tasks_from_uploaded_files(project, file_upload_ids)
+        result = FileUpload.load_tasks_from_uploaded_files(project, file_upload_ids)
+
+        if len(result) == 4:
+            tasks, found_formats, data_keys, _ = result
+
+        else:
+            tasks, found_formats, data_keys = result
 
     # take tasks from url address
     elif 'application/x-www-form-urlencoded' in request.content_type:
@@ -270,7 +291,13 @@ def load_tasks(request, project):
         if json_data:
             file_upload = create_file_upload(request.user, project, SimpleUploadedFile('inplace.json', url.encode()))
             file_upload_ids.append(file_upload.id)
-            tasks, found_formats, data_keys = FileUpload.load_tasks_from_uploaded_files(project, file_upload_ids)
+            result = FileUpload.load_tasks_from_uploaded_files(project, file_upload_ids)
+
+            if len(result) == 4:
+                tasks, found_formats, data_keys, _ = result
+
+            else:
+                tasks, found_formats, data_keys = result
 
         # download file using url and read tasks from it
         else:
