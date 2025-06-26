@@ -13,6 +13,10 @@ etc/
 yarn-error.log
 /dist/
 
+#nginx config must be generated per installation
+#due to abs file paths
+/nginx/conf/nginx.conf
+
 # mobile/builds
 db/
 logfile

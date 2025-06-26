@@ -31,6 +31,18 @@ confirm() {
         esac
     done
 }
+remove_yarn() {
+    if command -v yarn &>/dev/null; then
+        print_info "Attempting to uninstall Yarn globally (without sudo)..."
+        if npm uninstall -g yarn; then
+            print_info "Yarn uninstalled successfully."
+        else
+            print_warn "Could not uninstall Yarn without sudo. Please uninstall it manually if necessary."
+        fi
+    else
+        print_info "Yarn not found; skipping."
+    fi
+}
 
 remove_repo() {
     if [[ -d "$REPO_DIR" ]]; then
@@ -74,8 +86,8 @@ remove_conda_env() {
 
 print_info "Starting uninstallation..."
 
-remove_repo
 remove_conda_env
+remove_repo
 
 print_warn "Miniconda installation is NOT removed by this script. Please remove it manually if desired."
 
