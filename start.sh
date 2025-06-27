@@ -3,6 +3,42 @@
 # Label Studio Startup Script
 # This script starts the uwsgi server and nginx in the correct order using relative paths
 
+
+
+# Function to print colored output (simple here, no colors for now)
+print_status() {
+    echo "[INFO] $1"
+}
+
+print_success() {
+    echo "[SUCCESS] $1"
+}
+
+print_warning() {
+    echo "[WARNING] $1"
+}
+
+print_error() {
+    echo "[ERROR] $1"
+}
+# Load conda into script environment and activate the correct environment
+if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+    source "$HOME/miniconda3/etc/profile.d/conda.sh"
+    
+    conda activate label-studio  # replace with your actual env name if different
+    print_status "Activated conda environment: $(conda info --envs | grep '^label-studio')"
+else
+    print_error "Conda not found at expected path. Make sure Miniconda is installed."
+    exit 1
+fi
+
+if [[ "$CONDA_DEFAULT_ENV" != "label-studio" ]]; then
+    print_error "Conda environment activation failed. Expected: label-studio, got: $CONDA_DEFAULT_ENV"
+    echo "which python: $(which python)"
+    exit 1
+fi
+
+
 # Resolve the directory this script lives in (absolute path)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Assume repo root is parent directory of script directory; adjust if different
@@ -26,22 +62,6 @@ export LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
 
 set -e  # Exit on any error
 
-# Function to print colored output (simple here, no colors for now)
-print_status() {
-    echo "[INFO] $1"
-}
-
-print_success() {
-    echo "[SUCCESS] $1"
-}
-
-print_warning() {
-    echo "[WARNING] $1"
-}
-
-print_error() {
-    echo "[ERROR] $1"
-}
 
 # Check if a port is in use
 check_port() {

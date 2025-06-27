@@ -55,27 +55,28 @@ install_miniconda() {
 }
 
 create_conda_env() {
+    if [[ ! -f "$ENV_FILE" ]]; then
+        print_error "Environment file '$ENV_FILE' not found. Cannot create conda environment."
+        exit 1
+    fi
 
     local env_name
     env_name=$(awk '/^name:/ {print $2; exit}' "$ENV_FILE")
 
-    if conda env list | grep -qE "^${env_name}[[:space:]]"; then
+    if [[ -z "$env_name" ]]; then
+        print_error "Could not determine environment name from $ENV_FILE"
+        exit 1
+    fi
+
+    eval "$("$MINICONDA_DIR/bin/conda" shell.bash hook)"
+
+    if conda env list | awk '{print $1}' | grep -qx "$env_name"; then
         print_info "Conda environment '$env_name' already exists."
     else
         print_info "Creating conda environment '$env_name' from $ENV_FILE..."
-        if [[ ! -f "$ENV_FILE" ]]; then
-            print_error "Environment file '$ENV_FILE' not found. Cannot create conda environment."
-            exit 1
-        fi
         conda env create -f "$ENV_FILE"
         print_info "Conda environment '$env_name' created."
     fi
-
-    print_info "Activating conda environment '$env_name'..."
-    # Activate conda environment in script
-    # Note: This works if the conda shell hook is loaded.
-    eval "$(conda shell.bash hook)"
-    conda activate "$env_name"
 }
 
 clone_repo() {
@@ -97,18 +98,47 @@ install_poetry_and_dependencies() {
     poetry install --no-interaction --no-ansi
 }
 
+
 install_node_and_yarn() {
-    # Load nvm if available
-    if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
-        print_info "Loading nvm..."
-        # shellcheck source=/dev/null
-        source "$HOME/.nvm/nvm.sh"
-        nvm use 18 || nvm install 18
-    else
-        print_warn "nvm not found; ensure Node.js and Yarn are installed manually."
+    print_info "Checking for NVM..."
+
+    export NVM_DIR="$HOME/.nvm"
+    NVM_VERSION="v0.39.7"
+
+    # Install NVM if missing
+    if [[ ! -s "$NVM_DIR/nvm.sh" ]]; then
+        print_info "Installing nvm..."
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash
     fi
 
-    cd "$REPO_DIR/web"
+    # Load nvm
+    if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+        print_info "Loading nvm..."
+        # shellcheck source=/dev/null
+        source "$NVM_DIR/nvm.sh"
+    else
+        print_error "NVM installation failed."
+        return 1
+    fi
+
+    # Install Node.js 18 if not present
+    if ! nvm ls 18 &>/dev/null; then
+        print_info "Installing Node.js v18..."
+        nvm install 18
+    fi
+
+    print_info "Using Node.js v18..."
+    nvm use 18
+    nvm alias default 18
+
+    # Ensure yarn is installed
+    if ! command -v yarn &>/dev/null; then
+        print_info "Installing yarn..."
+        npm install -g yarn
+    fi
+
+    # Build frontend
+    cd "$REPO_DIR/web" || return 1
 
     print_info "Installing yarn dependencies..."
     yarn install
@@ -116,7 +146,40 @@ install_node_and_yarn() {
     print_info "Building frontend assets..."
     yarn build
 
-    cd "$REPO_DIR"
+    cd "$REPO_DIR" || return 1
+}
+
+
+activate_conda(){
+    if [ ! -f "$ENV_FILE" ]; then
+        print_error "Environment file '$ENV_FILE' not found. Cannot activate conda environment."
+        exit 1
+    fi
+
+    if [ -f "$MINICONDA_DIR/etc/profile.d/conda.sh" ]; then
+        source "$MINICONDA_DIR/etc/profile.d/conda.sh"
+
+        local env_name
+        env_name=$(awk '/^name:/ {print $2; exit}' "$ENV_FILE")
+
+        if [[ -z "$env_name" ]]; then
+            print_error "Could not determine environment name from $ENV_FILE"
+            exit 1
+        fi
+
+        conda activate "$env_name"
+        print_info "Activated conda environment: $env_name"
+    else
+        print_error "Conda not found at expected path. Make sure Miniconda is installed."
+        exit 1
+    fi
+
+        if [[ "$CONDA_DEFAULT_ENV" != "$env_name" ]]; then
+            print_error "Conda environment activation failed. Expected: $env_name, got: $CONDA_DEFAULT_ENV"
+            echo "which python: $(which python)"
+            exit 1
+        fi
+
 }
 
 run_django_migrations() {
@@ -160,12 +223,16 @@ generate_nginx_conf() {
 
 
 main() {
-    #install_miniconda
-    #create_conda_env
+    install_miniconda
+    create_conda_env 
+    
+    activate_conda
     #clone_repo  #repo should already be cloned, thats where install comes from
-    #install_poetry_and_dependencies
-    #install_node_and_yarn
-    #run_django_migrations
+    pip install uwsgi
+    
+    install_poetry_and_dependencies
+    install_node_and_yarn
+    run_django_migrations
     generate_nginx_conf
 
     print_info "Installation complete!"
