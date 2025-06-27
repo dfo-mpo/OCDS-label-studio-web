@@ -2,7 +2,7 @@ import React from "react";
 import { modal } from "../../../components/Modal/Modal";
 import { CopyableTooltip } from "../../../components/CopyableTooltip/CopyableTooltip";
 
-export function configModal(data, closeCallBack) {
+export function ConfigModal(data, closeCallBack) {
   modal({
     title: "Import Summary",
     body: () => (
