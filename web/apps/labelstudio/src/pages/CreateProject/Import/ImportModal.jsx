@@ -10,6 +10,7 @@ import { Elem } from "../../../utils/bem";
 import { useRefresh } from "../../../utils/hooks";
 import { ImportPage } from "./Import";
 import { useImportPage } from "./useImportPage";
+// import { ConfigModal } from "./ConfigModal";
 
 export const Inner = () => {
   const history = useHistory();
@@ -20,6 +21,9 @@ export const Inner = () => {
   const [waiting, setWaitingStatus] = useState(false);
   const [sample, setSample] = useState(null);
   const api = useAPI();
+
+  // const [showConfigModal, setShowConfigModal] = useState(false);
+  // const [configData, setConfigData] = useState(null);
 
   const { uploading, uploadDisabled, finishUpload, fileIds, pageProps, uploadSample } = useImportPage(project);
 
@@ -58,17 +62,37 @@ export const Inner = () => {
     const imported = await finishUpload();
 
     if (!imported) return;
-    backToDM();
+
+    // Hide the import modal first
+    modal?.current?.hide();
+
+    // Show the config modal with the response data
+    if (imported.labels && imported.labels.length > 0) {
+      // setConfigData(imported);
+      // setShowConfigModal(true);
+      // const formattedLabel = imported.labels.replace(/></g, '>\n<');
+      prompt("Please copy the label configuration:\n\n", imported.labels);
+    } else {
+      // If no labels to show, go back to DM
+      backToDM();
+    }
   }, [backToDM, finishUpload, sample]);
 
+  // const onConfigModalClose = useCallback(() => {
+  //   setShowConfigModal(false);
+  //   setConfigData(null);
+  //   backToDM();
+  // }, [backToDM]);
+
   return (
+    // <div>
     <Modal
       title="Import data"
       ref={modal}
       onHide={() => backToDM()}
       closeOnClickOutside={false}
       fullscreen
-      visible
+      visible //={!showConfigModal} 
       bare
     >
       <Modal.Header divided>
@@ -95,7 +119,13 @@ export const Inner = () => {
         }}
         {...pageProps}
       />
+      {/* <ConfigModal 
+          visible={showConfigModal} 
+          onClose={onConfigModalClose} 
+          configData={configData} 
+        /> */}
     </Modal>
+    // </div>
   );
 };
 export const ImportModal = () => {

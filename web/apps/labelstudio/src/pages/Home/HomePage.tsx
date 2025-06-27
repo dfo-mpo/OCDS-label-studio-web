@@ -84,7 +84,7 @@ export const HomePage: Page = () => {
       <div className="grid grid-cols-[minmax(0,1fr)_450px] gap-6">
         <section className="flex flex-col gap-6">
           <div className="flex flex-col gap-1">
-            <Heading size={1}>Welcome 👋</Heading>
+            <Heading size={1}>Welcome Marine Mammal Sciences 👋</Heading>
             <Sub>Let's get you started.</Sub>
           </div>
           <div className="flex justify-start gap-4">
