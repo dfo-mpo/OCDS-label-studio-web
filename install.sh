@@ -194,6 +194,16 @@ run_django_migrations() {
     cd "$REPO_DIR"
 }
 
+install_nginx() {
+    if command -v nginx &>/dev/null; then
+        print_info "Nginx is already installed."
+    else
+        print_info "Installing Nginx..."
+        sudo apt-get update
+        sudo apt-get install -y nginx
+        print_info "Nginx installed."
+    fi
+}
 
 generate_nginx_conf() {
     local template_path="$REPO_DIR/nginx.conf.template"
@@ -229,9 +239,12 @@ main() {
     activate_conda
     #clone_repo  #repo should already be cloned, thats where install comes from
     pip install uwsgi
-    
+
     install_poetry_and_dependencies
     install_node_and_yarn
+
+    install_nginx
+
     run_django_migrations
     generate_nginx_conf
 

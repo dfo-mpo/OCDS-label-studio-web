@@ -152,6 +152,19 @@ remove_yarn() {
     fi
 }
 
+remove_uwsgi() {
+    if command -v pip >/dev/null 2>&1 && pip show uwsgi >/dev/null 2>&1; then
+        print_warn "Uninstalling uWSGI via pip..."
+        pip uninstall -y uwsgi && print_info "uWSGI uninstalled." || print_warn "Failed to uninstall uWSGI."
+    elif pip show pyuwsgi >/dev/null 2>&1; then
+        print_warn "Uninstalling pyuwsgi via pip..."
+        pip uninstall -y pyuwsgi && print_info "pyuwsgi uninstalled." || print_warn "Failed to uninstall pyuwsgi."
+    else
+        print_info "uWSGI not found via pip, skipping uninstall."
+    fi
+}
+
+
 main() {
     print_warn "This will fully uninstall label-studio-web-OCDS, conda environment, Miniconda, Poetry, and Yarn."
     if ! confirm "Proceed with FULL uninstall?"; then
@@ -164,15 +177,17 @@ main() {
         source "$MINICONDA_DIR/etc/profile.d/conda.sh"
     fi
 
-    remove_conda_env
     cleanup_poetry_and_yarn
 
     check_git_changes
 
-    remove_miniconda
-
     remove_poetry
     remove_yarn
+    remove_uwsgi
+
+    remove_conda_env
+    
+    #remove_miniconda
 
     #remove repo
     if [[ -d "$REPO_DIR" ]]; then

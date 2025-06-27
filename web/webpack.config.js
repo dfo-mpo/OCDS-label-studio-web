@@ -273,6 +273,7 @@ module.exports = composePlugins(
       devServer: process.env.MODE?.startsWith("standalone")
         ? {}
         : {
+            host: '0.0.0.0',
             // Port for the Webpack dev server
             port: HMR_PORT,
             // Enable HMR
