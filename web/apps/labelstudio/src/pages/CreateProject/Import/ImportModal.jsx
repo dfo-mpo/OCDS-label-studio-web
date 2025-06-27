@@ -11,6 +11,8 @@ import { useRefresh } from "../../../utils/hooks";
 import { ImportPage } from "./Import";
 import { useImportPage } from "./useImportPage";
 
+import { configModal } from "./configModal";
+
 export const Inner = () => {
   const history = useHistory();
   const location = useFixedLocation();
@@ -20,6 +22,7 @@ export const Inner = () => {
   const [waiting, setWaitingStatus] = useState(false);
   const [sample, setSample] = useState(null);
   const api = useAPI();
+  const [importedResult, setImportedResult] = useState("");
 
   const { uploading, uploadDisabled, finishUpload, fileIds, pageProps, uploadSample } = useImportPage(project);
 
@@ -57,19 +60,30 @@ export const Inner = () => {
 
     const imported = await finishUpload();
 
-    if (!imported) return;
-    backToDM();
-  }, [backToDM, finishUpload, sample]);
+    if (!imported) imported = "Nothing"; //return;
+
+    setImportedResult(imported); // save it to show later
+
+    // Close the Import modal first
+    modal.current?.hide();
+
+    // Then open the config modal with imported data and onClose handler
+
+    configModal({ data: imported, onClose: backToDM });
+
+    //backToDM();
+  }, [backToDM, finishUpload, sample, configModal]);
 
   return (
     <Modal
       title="Import data"
       ref={modal}
-      onHide={() => backToDM()}
+      //onHide={() => backToDM()}
       closeOnClickOutside={false}
       fullscreen
       visible
       bare
+      style={{ backgroundColor: '#FFFFFF' }}
     >
       <Modal.Header divided>
         <Elem block="modal" name="title">
@@ -95,6 +109,29 @@ export const Inner = () => {
         }}
         {...pageProps}
       />
+      {/* {importedResult && ( 
+      <div style={{ padding: '16px' }}> 
+        <CopyableTooltip
+          title="Click to copy"
+          textForCopy={JSON.stringify(importedResult, null, 2)}
+          onClick={() => {
+            modal?.current?.hide();
+            backToDM();
+          }}
+        >
+          <pre style={{
+            cursor: "pointer",
+            textDecoration: "underline",
+            color: "#1890ff",
+            fontSize: "12px",
+            whiteSpace: "pre-wrap",
+            margin: 0
+          }}>
+            {JSON.stringify(importedResult, null, 2)}
+          </pre>
+        </CopyableTooltip>
+        </div> 
+      )} */}
     </Modal>
   );
 };

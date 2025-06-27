@@ -1,0 +1,43 @@
+import React from "react";
+import { modal } from "../../../components/Modal/Modal";
+import { CopyableTooltip } from "../../../components/CopyableTooltip/CopyableTooltip";
+
+export function configModal(data, onClose) {
+  modal({
+    title: "Import Summary",
+    body: () => (
+      <div style={{
+        padding: '20px',
+        backgroundColor: '#f9f9f9',
+        borderRadius: '6px',
+        fontSize: '13px',
+        maxHeight: '60vh',
+        overflow: 'auto',
+      }}>
+        <CopyableTooltip
+          title="Click to copy"
+          textForCopy={JSON.stringify(data, null, 2)}
+          onClick={() => {
+            if (onClose) onClose();
+          }}
+        >
+          <pre style={{
+            cursor: "pointer",
+            color: "#333",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            margin: 0,
+            fontFamily: "monospace",
+          }}>
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </CopyableTooltip>
+      </div>
+    ),
+    style: { width: 600 },
+    allowClose: true,
+    onClose: () => {
+      if (onClose) onClose();
+    },
+  });
+}

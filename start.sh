@@ -3,8 +3,6 @@
 # Label Studio Startup Script
 # This script starts the uwsgi server and nginx in the correct order using relative paths
 
-
-
 # Function to print colored output (simple here, no colors for now)
 print_status() {
     echo "[INFO] $1"
@@ -213,6 +211,7 @@ show_help() {
     echo "  status    Show service status"
     echo "  health    Check service health"
     echo "  logs      Show recent logs"
+    echo "  front-dev Run frontend development server with yarn dev"
     echo "  help      Show this help message"
     echo
 }
@@ -243,6 +242,25 @@ case "${1:-start}" in
         check_health
         show_status
         print_success "Label Studio is now running!"
+        ;;
+    front-dev)
+        print_status "Starting frontend development server..."
+
+        cd "$REPO_ROOT/web" || { print_error "web directory not found: $REPO_ROOT/web"; exit 1; }
+        yarn dev &
+
+        # Save yarn dev PID in case you want to kill it later (optional)
+        YARN_PID=$!
+
+        print_status "Frontend dev server started with PID $YARN_PID"
+
+        # Go back to repo root and start backend normally
+        cd "$REPO_ROOT" || { print_error "Failed to cd back to repo root"; exit 1; }
+        # Start backend services normally
+        "$0" start
+
+        echo
+        print_warning "Please connect to localhost:8010 via local port forwarding to access the frontend-dev server"
         ;;
     stop)
         print_status "Stopping Label Studio services..."
