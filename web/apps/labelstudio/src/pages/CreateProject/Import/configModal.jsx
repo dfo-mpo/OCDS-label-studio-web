@@ -16,10 +16,7 @@ export function configModal(data, onClose) {
       }}>
         <CopyableTooltip
           title="Click to copy"
-          textForCopy={JSON.stringify(data, null, 2)}
-          onClick={() => {
-            if (onClose) onClose();
-          }}
+          textForCopy={data}
         >
           <pre style={{
             cursor: "pointer",
@@ -29,7 +26,7 @@ export function configModal(data, onClose) {
             margin: 0,
             fontFamily: "monospace",
           }}>
-            {JSON.stringify(data, null, 2)}
+            {data}
           </pre>
         </CopyableTooltip>
       </div>

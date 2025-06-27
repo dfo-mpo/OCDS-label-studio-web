@@ -67,7 +67,7 @@ export const Inner = () => {
       modal.current?.hide();
 
       // Then open the config modal with imported data and onClose handler
-      configModal({ data: imported.labels, onClose: backToDM });
+      configModal(imported.labels[0], backToDM);
     }
     else{
       modal.current?.hide();
