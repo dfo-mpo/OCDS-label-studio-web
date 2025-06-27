@@ -174,7 +174,22 @@ main() {
     remove_poetry
     remove_yarn
 
+    #remove repo
     if [[ -d "$REPO_DIR" ]]; then
+        cd "$REPO_DIR"
+
+        if [[ -d ".git" ]]; then
+            if [[ -n $(git status --porcelain) ]]; then
+                print_warn "There are unsaved changes in the Git repository at $REPO_DIR"
+                confirm "Do you still want to delete the repository?" "N" || {
+                    print_info "Aborted project directory removal due to unsaved changes."
+                    exit 0
+                }
+            fi
+        else
+            print_warn "No .git directory found in $REPO_DIR. Skipping git checks."
+        fi
+
         print_info "Removing project directory at $REPO_DIR last..."
         rm -rf "$REPO_DIR"
         print_info "Project directory removed."
