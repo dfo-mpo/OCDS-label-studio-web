@@ -11,7 +11,7 @@ import { useRefresh } from "../../../utils/hooks";
 import { ImportPage } from "./Import";
 import { useImportPage } from "./useImportPage";
 
-import { ConfigModal } from "./ConfigModal";
+import { configModal } from "./ConfigModal";
 
 export const Inner = () => {
   const history = useHistory();
@@ -22,9 +22,6 @@ export const Inner = () => {
   const [waiting, setWaitingStatus] = useState(false);
   const [sample, setSample] = useState(null);
   const api = useAPI();
-
-  // const [showConfigModal, setShowConfigModal] = useState(false);
-  // const [configData, setConfigData] = useState(null);
 
   const { uploading, uploadDisabled, finishUpload, fileIds, pageProps, uploadSample } = useImportPage(project);
 
@@ -68,14 +65,14 @@ export const Inner = () => {
 
       // Then open the config modal with imported data and onClose handler
       backToDM()
-      ConfigModal(imported.labels[0], backToDM);
+      configModal(imported.labels[0], backToDM);
     }
     else{
       modal.current?.hide();
       backToDM()
     }
     
-  }, [backToDM, finishUpload, sample, ConfigModal]);
+  }, [backToDM, finishUpload, sample]);
 
   return (
     // <div>
@@ -85,7 +82,7 @@ export const Inner = () => {
       //onHide={() => backToDM()}
       closeOnClickOutside={false}
       fullscreen
-      visible //={!showConfigModal} 
+      visible  
       bare
       style={{ backgroundColor: '#FFFFFF' }}
     >
@@ -113,13 +110,7 @@ export const Inner = () => {
         }}
         {...pageProps}
       />
-      {/* <ConfigModal 
-          visible={showConfigModal} 
-          onClose={onConfigModalClose} 
-          configData={configData} 
-        /> */}
     </Modal>
-    // </div>
   );
 };
 export const ImportModal = () => {
