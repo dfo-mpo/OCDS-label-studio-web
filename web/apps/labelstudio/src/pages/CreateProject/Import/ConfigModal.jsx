@@ -1,51 +1,40 @@
-import { useState } from "react";
-import { Modal } from "../../../components/Modal/Modal";
-import { Button } from "../../../components";
-import { Space } from "../../../components/Space/Space";
-import { Elem } from "../../../utils/bem";
+import React from "react";
+import { modal } from "../../../components/Modal/Modal";
+import { CopyableTooltip } from "../../../components/CopyableTooltip/CopyableTooltip";
 
-export const ConfigModal = ({ visible, onClose, configData }) => {
-  return (
-    <Modal
-      title="Import Configuration"
-      onHide={onClose}
-      closeOnClickOutside={true}
-      visible={visible}
-    >
-      <Modal.Header divided>
-        <Elem block="modal" name="title">
-          Import Configuration
-        </Elem>
-        <Space>
-          <Button onClick={onClose}>
-            Close
-          </Button>
-        </Space>
-      </Modal.Header>
-      
-      <Modal.Body>
-        <div style={{ padding: '20px' }}>
-          <h3>Labels Configuration:</h3>
-          {configData?.labels?.map((label, index) => (
-            <div key={index} style={{ 
-              marginBottom: '15px', 
-              padding: '10px', 
-              border: '1px solid #ddd', 
-              borderRadius: '4px',
-              backgroundColor: '#f9f9f9'
-            }}>
-              <pre style={{ 
-                whiteSpace: 'pre-wrap', 
-                fontSize: '12px',
-                margin: 0,
-                fontFamily: 'monospace'
-              }}>
-                {label}
-              </pre>
-            </div>
-          ))}
-        </div>
-      </Modal.Body>
-    </Modal>
-  );
-};
+export function configModal(data, closeCallBack) {
+  modal({
+    title: "Import Summary",
+    body: () => (
+      <div style={{
+        padding: '20px',
+        backgroundColor: '#f9f9f9',
+        borderRadius: '6px',
+        fontSize: '13px',
+        maxHeight: '60vh',
+        overflow: 'auto',
+      }}>
+        <CopyableTooltip
+          title="Click to copy"
+          textForCopy={data}
+        >
+          <pre style={{
+            cursor: "pointer",
+            color: "#333",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            margin: 0,
+            fontFamily: "monospace",
+          }}>
+            {data}
+          </pre>
+        </CopyableTooltip>
+      </div>
+    ),
+    style: { width: 600 },
+    allowClose: true,
+    onClose: () => {
+      if (closeCallBack) closeCallBack();
+    },
+  });
+}

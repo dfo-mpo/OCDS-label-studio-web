@@ -11,7 +11,7 @@ import { useRefresh } from "../../../utils/hooks";
 import { ImportPage } from "./Import";
 import { useImportPage } from "./useImportPage";
 
-import { configModal } from "./configModal";
+import { ConfigModal } from "./ConfigModal";
 
 export const Inner = () => {
   const history = useHistory();
@@ -29,7 +29,8 @@ export const Inner = () => {
   const { uploading, uploadDisabled, finishUpload, fileIds, pageProps, uploadSample } = useImportPage(project);
 
   const backToDM = useCallback(() => {
-    const path = location.pathname.replace(ImportModal.path, "");
+    console.log("backToDM")
+    const path = location.pathname.replace(ImportModal.path, "");  
     const search = location.search;
     const pathname = `${path}${search !== "?" ? search : ""}`;
 
@@ -64,9 +65,9 @@ export const Inner = () => {
 
     if (imported && imported.labels && imported.labels.length>0){
       // Close the Import modal first
-      modal.current?.hide();
 
       // Then open the config modal with imported data and onClose handler
+      backToDM()
       configModal(imported.labels[0], backToDM);
     }
     else{
