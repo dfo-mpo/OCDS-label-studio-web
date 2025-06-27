@@ -22,7 +22,6 @@ export const Inner = () => {
   const [waiting, setWaitingStatus] = useState(false);
   const [sample, setSample] = useState(null);
   const api = useAPI();
-  const [importedResult, setImportedResult] = useState("");
 
   const { uploading, uploadDisabled, finishUpload, fileIds, pageProps, uploadSample } = useImportPage(project);
 
@@ -60,18 +59,18 @@ export const Inner = () => {
 
     const imported = await finishUpload();
 
-    if (!imported) imported = "Nothing"; //return;
+    if (imported){
+      // Close the Import modal first
+      modal.current?.hide();
 
-    setImportedResult(imported); // save it to show later
-
-    // Close the Import modal first
-    modal.current?.hide();
-
-    // Then open the config modal with imported data and onClose handler
-
-    configModal({ data: imported, onClose: backToDM });
-
-    //backToDM();
+      // Then open the config modal with imported data and onClose handler
+      configModal({ data: imported, onClose: backToDM });
+    }
+    else{
+      modal.current?.hide();
+      backToDM()
+    }
+    
   }, [backToDM, finishUpload, sample, configModal]);
 
   return (
@@ -109,29 +108,6 @@ export const Inner = () => {
         }}
         {...pageProps}
       />
-      {/* {importedResult && ( 
-      <div style={{ padding: '16px' }}> 
-        <CopyableTooltip
-          title="Click to copy"
-          textForCopy={JSON.stringify(importedResult, null, 2)}
-          onClick={() => {
-            modal?.current?.hide();
-            backToDM();
-          }}
-        >
-          <pre style={{
-            cursor: "pointer",
-            textDecoration: "underline",
-            color: "#1890ff",
-            fontSize: "12px",
-            whiteSpace: "pre-wrap",
-            margin: 0
-          }}>
-            {JSON.stringify(importedResult, null, 2)}
-          </pre>
-        </CopyableTooltip>
-        </div> 
-      )} */}
     </Modal>
   );
 };
