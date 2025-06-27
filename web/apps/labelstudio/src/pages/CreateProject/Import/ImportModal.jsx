@@ -23,6 +23,9 @@ export const Inner = () => {
   const [sample, setSample] = useState(null);
   const api = useAPI();
 
+  // const [showConfigModal, setShowConfigModal] = useState(false);
+  // const [configData, setConfigData] = useState(null);
+
   const { uploading, uploadDisabled, finishUpload, fileIds, pageProps, uploadSample } = useImportPage(project);
 
   const backToDM = useCallback(() => {
@@ -59,12 +62,12 @@ export const Inner = () => {
 
     const imported = await finishUpload();
 
-    if (imported){
+    if (imported && imported.labels && imported.labels.length>0){
       // Close the Import modal first
       modal.current?.hide();
 
       // Then open the config modal with imported data and onClose handler
-      configModal({ data: imported, onClose: backToDM });
+      configModal({ data: imported.labels, onClose: backToDM });
     }
     else{
       modal.current?.hide();
@@ -74,13 +77,14 @@ export const Inner = () => {
   }, [backToDM, finishUpload, sample, configModal]);
 
   return (
+    // <div>
     <Modal
       title="Import data"
       ref={modal}
       //onHide={() => backToDM()}
       closeOnClickOutside={false}
       fullscreen
-      visible
+      visible //={!showConfigModal} 
       bare
       style={{ backgroundColor: '#FFFFFF' }}
     >
@@ -108,7 +112,13 @@ export const Inner = () => {
         }}
         {...pageProps}
       />
+      {/* <ConfigModal 
+          visible={showConfigModal} 
+          onClose={onConfigModalClose} 
+          configData={configData} 
+        /> */}
     </Modal>
+    // </div>
   );
 };
 export const ImportModal = () => {
