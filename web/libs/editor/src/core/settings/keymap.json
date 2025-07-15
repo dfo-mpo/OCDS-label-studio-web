@@ -82,7 +82,7 @@
   },
   "region:focus": {
     "key": "enter",
-    "description": "Focus first focusable region"
+    "description": "Focus on region"
   },
   "region:relation": {
     "key": "alt+r",

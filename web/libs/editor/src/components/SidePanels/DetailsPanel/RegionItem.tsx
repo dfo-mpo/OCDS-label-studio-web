@@ -142,6 +142,38 @@ const RegionAction: FC<any> = observer(({ region, annotation, editMode, onEditMo
           style={{ width: 36, height: 32 }}
         />
         <RegionActionButton
+          icon={<IconEyeOpened />}
+          onClick={() => {
+            var object = region.object
+
+            console.log(`Focus on object: annotation: ${annotation} region: ${region}`);
+            if (typeof object.setZoomPosition === "function" && region) {
+              
+              var region_x = ((region.x+(region.width/2)))/100.0
+              var region_y = ((region.y+(region.height/2))/100.0)
+              
+              var region_coverage_x = ((region.width)/100.0)
+              var region_coverage_y = (region.height/100.0)
+              
+              var zoom = Math.min(1.0/region_coverage_x, 1.0/region_coverage_y)
+              //zoom = Math.max(zoom,1.0)
+              object.setZoom(zoom)
+
+              //object.zoomScale doesnt match zoom, why?
+
+            const x2 = -object.stageWidth*object.zoomScale*((region.x+region.width/2))/100
+            const y2 = -object.stageHeight*object.zoomScale*((region.y+region.height/2))/100
+
+            console.log(`Set position: ${x2}, ${y2} and zoomScale: ${object.zoomScale} zoom: ${zoom}`);
+            const scale = 1.0//debug
+            object.setZoomPosition?.(x2, y2);
+            
+            }
+          }}
+          displayedHotkey="region:focus"
+          aria-label={`Focus selected region`}
+        />
+        <RegionActionButton
           icon={region.hidden ? <IconEyeClosed /> : <IconEyeOpened />}
           onClick={region.toggleHidden}
           displayedHotkey="region:visibility"
