@@ -144,40 +144,48 @@ const RegionAction: FC<any> = observer(({ region, annotation, editMode, onEditMo
         <RegionActionButton
           icon={<IconEyeOpened />}
           onClick={() => {
-            var object = region.object
+            var object = region.object;
 
             console.log(`Focus on object: annotation: ${annotation} region: ${region}`);
             if (typeof object.setZoomPosition === "function" && region) {
               
-              var region_x = ((region.x+(region.width/2)))/100.0
-              var region_y = ((region.y+(region.height/2))/100.0)
+              // Convert region coordinates from percentages to actual image coordinates
+              const regionCenterX = (region.x + region.width / 2) / 100.0;
+              const regionCenterY = (region.y + region.height / 2) / 100.0;
               
-              var region_coverage_x = ((region.width)/100.0)
-              var region_coverage_y = (region.height/100.0)
+              const regionCoverageX = region.width / 100.0;
+              const regionCoverageY = region.height / 100.0;
               
-              var zoom = Math.min(1.0/region_coverage_x, 1.0/region_coverage_y)
-              //zoom = Math.max(zoom,1.0)
-              object.setZoom(zoom)
-
-              //object.zoomScale doesnt match zoom, why?
-
-            const x2 = -object.stageWidth*object.zoomScale*((region.x+region.width/2))/100
-            const y2 = -object.stageHeight*object.zoomScale*((region.y+region.height/2))/100
-
-            console.log(`Set position: ${x2}, ${y2} and zoomScale: ${object.zoomScale} zoom: ${zoom}`);
-            const scale = 1.0//debug
-            object.setZoomPosition?.(x2, y2);
-            
+              // Calculate zoom to fit region with some padding
+              const padding = 0.1; // 10% padding around the region
+              const zoomX = 1.0 / (regionCoverageX + padding);
+              const zoomY = 1.0 / (regionCoverageY + padding);
+              const zoom = Math.min(zoomX, zoomY);
+              
+              // Apply zoom constraints from the image viewer
+              const finalZoom = Math.max(zoom, object.negativezoom ? 0.1 : 1.0);
+              
+              object.setZoom(finalZoom);
+              object.updateImageAfterZoom();
+              
+              // Calculate position to center the region in the viewport
+              // The position should move the region center to the viewport center
+              const viewportCenterX = object.canvasSize.width / 2;
+              const viewportCenterY = object.canvasSize.height / 2;
+              
+              const regionCenterInStageX = regionCenterX * object.stageWidth * object.zoomScale;
+              const regionCenterInStageY = regionCenterY * object.stageHeight * object.zoomScale;
+              
+              const newX = viewportCenterX - regionCenterInStageX;
+              const newY = viewportCenterY - regionCenterInStageY;
+              
+              console.log(`Set position: ${newX}, ${newY} and zoomScale: ${object.zoomScale} zoom: ${finalZoom}`);
+              object.setZoomPosition?.(newX, newY);
+              object.updateImageAfterZoom();
             }
           }}
           displayedHotkey="region:focus"
           aria-label={`Focus selected region`}
-        />
-        <RegionActionButton
-          icon={region.hidden ? <IconEyeClosed /> : <IconEyeOpened />}
-          onClick={region.toggleHidden}
-          displayedHotkey="region:visibility"
-          aria-label={`Focus on selected region`}
         />
         <RegionActionButton
           icon={region.hidden ? <IconEyeClosed /> : <IconEyeOpened />}
@@ -191,7 +199,7 @@ const RegionAction: FC<any> = observer(({ region, annotation, editMode, onEditMo
           icon={<IconTrash />}
           onClick={() => annotation.deleteRegion(region)}
           displayedHotkey="region:delete"
-          aria-label="Delete selected region (HUUUUWOAAAAAAAAAAAAAAAAAAAHHHGGHH)"
+          aria-label="Delete selected region"
         />
       </Elem>
     </Block>

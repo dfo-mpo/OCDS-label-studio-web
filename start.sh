@@ -180,6 +180,8 @@ check_health() {
     else
         print_error "Full stack is not responding"
     fi
+
+    
 }
 
 # Show status info
@@ -232,9 +234,46 @@ show_logs() {
     echo
 }
 
+
+
+generate_nginx_conf() {
+    local template_path="$REPO_ROOT/nginx.conf.template"
+    local output_path="$REPO_ROOT/nginx/conf/nginx.conf"
+
+    print_status "Removing old nginx.conf if it exists..."
+    rm -f "$output_path"
+
+    if ! command -v envsubst &>/dev/null; then
+        print_warning "envsubst not found, attempting to install gettext..."
+        sudo apt-get update && sudo apt-get install -y gettext
+    fi
+
+    if [[ ! -f "$template_path" ]]; then
+        print_error "Nginx template '$template_path' not found. Skipping nginx config generation."
+        return 1
+    fi
+
+    export PROJECT_ROOT="$REPO_ROOT"
+
+    print_status "Generating nginx config from template at $template_path..."
+    mkdir -p "$(dirname "$output_path")"
+
+    # Only substitute ${PROJECT_ROOT}
+    envsubst '${PROJECT_ROOT}' < "$template_path" > "$output_path"
+
+    print_success "Nginx config generated at $output_path"
+}
+
+
+
+
 # Main execution
 case "${1:-start}" in
     start)
+
+
+        generate_nginx_conf
+
         print_status "Starting Label Studio services..."
         stop_services
         start_uwsgi
