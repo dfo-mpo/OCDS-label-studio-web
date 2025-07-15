@@ -3,6 +3,7 @@
 import logging
 import os
 import uuid
+import re
 from collections import Counter
 
 import pandas as pd
@@ -116,7 +117,10 @@ class FileUpload(models.Model):
                     tasks = json.load(annotation_data.decode('utf8'))
 
             with open(output_annotation_file.replace(".json", "") + ".label_config.xml") as label_data:
-                labels = label_data.read()       
+                labels = label_data.read()
+
+            labels = re.sub(r'<(RectangleLabels|PolygonLabels|KeyPointLabels)(\s+[^>]*?)>', 
+                       r'<\1\2 opacity="0.0">', labels)
         
         if isinstance(tasks, dict):
             tasks = [tasks]

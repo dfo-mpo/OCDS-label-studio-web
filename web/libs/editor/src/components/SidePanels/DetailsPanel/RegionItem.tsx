@@ -145,6 +145,12 @@ const RegionAction: FC<any> = observer(({ region, annotation, editMode, onEditMo
           icon={region.hidden ? <IconEyeClosed /> : <IconEyeOpened />}
           onClick={region.toggleHidden}
           displayedHotkey="region:visibility"
+          aria-label={`Focus on selected region`}
+        />
+        <RegionActionButton
+          icon={region.hidden ? <IconEyeClosed /> : <IconEyeOpened />}
+          onClick={region.toggleHidden}
+          displayedHotkey="region:visibility"
           aria-label={`${region.hidden ? "Show" : "Hide"} selected region`}
         />
         <RegionActionButton
@@ -153,7 +159,7 @@ const RegionAction: FC<any> = observer(({ region, annotation, editMode, onEditMo
           icon={<IconTrash />}
           onClick={() => annotation.deleteRegion(region)}
           displayedHotkey="region:delete"
-          aria-label="Delete selected region"
+          aria-label="Delete selected region (HUUUUWOAAAAAAAAAAAAAAAAAAAHHHGGHH)"
         />
       </Elem>
     </Block>
