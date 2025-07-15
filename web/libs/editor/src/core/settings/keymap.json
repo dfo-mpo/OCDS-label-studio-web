@@ -81,7 +81,7 @@
     "description": "Delete all regions"
   },
   "region:focus": {
-    "key": "enter",
+    "key": "NONE",
     "description": "Focus on region"
   },
   "region:relation": {

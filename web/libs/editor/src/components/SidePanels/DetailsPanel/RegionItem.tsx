@@ -1,7 +1,7 @@
 import chroma from "chroma-js";
 import { observer } from "mobx-react";
 import { type FC, useMemo, useState } from "react";
-import { IconRelationLink, IconPlus, IconTrash, IconWarning, IconEyeClosed, IconEyeOpened } from "@humansignal/icons";
+import { IconRelationLink, IconPlus, IconTrash, IconWarning, IconEyeClosed, IconEyeOpened, IconZoomIn} from "@humansignal/icons";
 import { Button, type ButtonProps } from "../../../common/Button/Button";
 import { CREATE_RELATION_MODE } from "../../../stores/Annotation/LinkingModes";
 import { Block, Elem } from "../../../utils/bem";
@@ -142,7 +142,7 @@ const RegionAction: FC<any> = observer(({ region, annotation, editMode, onEditMo
           style={{ width: 36, height: 32 }}
         />
         <RegionActionButton
-          icon={<IconEyeOpened />}
+          icon={<IconZoomIn/>}
           onClick={() => {
             var object = region.object;
 
@@ -187,7 +187,7 @@ const RegionAction: FC<any> = observer(({ region, annotation, editMode, onEditMo
           displayedHotkey="region:focus"
           aria-label={`Focus selected region`}
         />
-        <RegionActionButton
+          <RegionActionButton
           icon={region.hidden ? <IconEyeClosed /> : <IconEyeOpened />}
           onClick={region.toggleHidden}
           displayedHotkey="region:visibility"

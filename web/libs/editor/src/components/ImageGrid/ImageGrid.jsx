@@ -34,7 +34,8 @@ export default observer(
       );
 
       return (
-        <Layer opacity={0.15} name="ruler">
+        
+        <Layer opacity={0.15} name="ruler" listening={false}>
           {Object.values(grid).map((n, i) => (
             <Rect
               key={i}
