@@ -13,10 +13,11 @@ etc/
 yarn-error.log
 /dist/
 
-#nginx config must be generated per installation
-#due to abs file paths
-#/nginx/conf/*
-#/nginx/logs/*
+#there is a .gitignore and .gitkeep in these two directories
+#so we keep the directory, and ignore any files
+#so we dont get errors trying to put logs in a nonexistent folder
+#nginx/conf
+#nginx/logs
 
 # mobile/builds
 db/
