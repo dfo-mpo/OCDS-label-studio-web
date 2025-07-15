@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="$HOME/label-studio-web-OCDS"
+REPO_DIR="$HOME/label-studio-web/label-studio-web-OCDS"
 ENV_FILE="label-studio-env.yml"
 MINICONDA_DIR="$HOME/miniconda3"
 MINICONDA_INSTALLER="/tmp/Miniconda3-latest-Linux-x86_64.sh"
