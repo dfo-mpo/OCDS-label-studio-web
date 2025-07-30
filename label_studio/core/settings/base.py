@@ -472,6 +472,8 @@ MEDIA_URL = '/data/'
 UPLOAD_DIR = 'upload'
 AVATAR_PATH = 'avatars'
 
+#update also in 
+#/web/apps/labelstudio/src/pages/CreateProject/Import/Import.jsx
 SUPPORTED_EXTENSIONS = set(
     [
         '.bmp',
@@ -496,6 +498,7 @@ SUPPORTED_EXTENSIONS = set(
         '.webm',
         '.webp',
         '.pdf',
+        '.dzi'#HugeImage Deep Zoom, add more if works
     ]
 )
 

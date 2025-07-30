@@ -57,6 +57,7 @@ const PanelModel = types
       "text",
       "audio",
       "image",
+      "hugeimage",
       "hypertext",
       "audioplus",
       "list",

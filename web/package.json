@@ -54,6 +54,7 @@
     "@radix-ui/react-popover": "^1.1.6",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-toast": "^1.1.5",
+    "@samvera/clover-iiif": "^2.18.3",
     "@tanstack/query-core": "^5.66.0",
     "@tanstack/react-query": "^4",
     "@thi.ng/rle-pack": "^3.1.30",

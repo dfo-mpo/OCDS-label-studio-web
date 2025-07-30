@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "openseadragon": "^3.1.0",
+    "openseadragon-react-viewer": "^3.6.0",
+    "react-device-detect": "^2.2.3",
+    "react-select": "^5.10.2"
+  }
+}

@@ -25,11 +25,13 @@ function flatten(nested) {
 }
 
 // Keep in sync with core.settings.SUPPORTED_EXTENSIONS on the BE.
+// "../../../../../../../label_studio/core/settings/base.py"
 const supportedExtensions = {
   text: ["txt"],
   audio: ["wav", "mp3", "flac", "m4a", "ogg"],
   video: ["mp4", "webp", "webm"],
   image: ["jpg", "jpeg", "png", "gif", "bmp", "svg", "webp"],
+  hugeImage: ["jpg", "jpeg", "png", "gif", "bmp", "webp"],
   html: ["html", "htm", "xml"],
   timeSeries: ["csv", "tsv"],
   pdf: ["pdf"],
@@ -410,6 +412,8 @@ export const ImportPage = ({
                       <dd>mpeg4/H.264 webp, webm* {/* Keep in sync with supportedExtensions.video */}</dd>
                       <dt>Images</dt>
                       <dd>{supportedExtensions.image.join(", ")}</dd>
+                      <dt>Huge Images</dt>
+                      <dd>{supportedExtensions.hugeImage.join(", ")}</dd>
                       <dt>HTML</dt>
                       <dd>{supportedExtensions.html.join(", ")}</dd>
                       <dt>Time Series</dt>

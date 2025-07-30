@@ -105,6 +105,7 @@ const Model = types
       "text",
       "audio",
       "image",
+      "hugeimage",
       "hypertext",
       "richtext",
       "timeseries",

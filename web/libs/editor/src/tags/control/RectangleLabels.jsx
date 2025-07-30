@@ -42,7 +42,7 @@ import ControlBase from "./Base";
  */
 
 const Validation = types.model({
-  controlledTags: Types.unionTag(["Image"]),
+  controlledTags: Types.unionTag(["Image", "HugeImage"]),
 });
 
 const ModelAttrs = types.model("RectangleLabelsModel", {

@@ -43,6 +43,7 @@ const Model = types.model({
     "text",
     "audio",
     "image",
+    "hugeimage",
     "hypertext",
     "richtext",
     "timeseries",
