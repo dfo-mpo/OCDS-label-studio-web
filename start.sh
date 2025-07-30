@@ -328,6 +328,9 @@ case "${1:-start}" in
     help|-h|--help)
         show_help
         ;;
+    nginx)
+        start_nginx
+        ;;
     *)
         print_error "Unknown command: $1"
         show_help
