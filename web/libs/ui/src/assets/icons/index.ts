@@ -139,6 +139,8 @@ export { ReactComponent as IconInfoOutline } from "./info-outline.svg";
 export { ReactComponent as IconInterpolationAdd } from "./interpolation-add.svg";
 export { ReactComponent as IconInterpolationDisabled } from "./interpolation-disabled.svg";
 export { ReactComponent as IconInterpolationRemove } from "./interpolation-remove.svg";
+export { ReactComponent as IconInvertTool } from "./invert-color.svg" //https://www.svgrepo.com/svg/379191/invert-color
+export { ReactComponent as IconSaturateTool } from "./color-wheel.svg" //https://www.svgrepo.com/svg/439109/color-wheel
 export { ReactComponent as IconIO } from "./io.svg";
 export { ReactComponent as IconKeypointAdd } from "./keypoint-add.svg";
 export { ReactComponent as IconKeypointDelete } from "./keypoint-delete.svg";

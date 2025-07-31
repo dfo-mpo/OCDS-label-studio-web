@@ -83,6 +83,9 @@ const IMAGE_PRELOAD_COUNT = 3;
  * @param {boolean} [zoomControl=false]       - Show zoom controls in toolbar
  * @param {boolean} [brightnessControl=false] - Show brightness control in toolbar
  * @param {boolean} [contrastControl=false]   - Show contrast control in toolbar
+ * @param {boolean} [saturationControl=false]   - Show saturation control in toolbar
+ * @param {boolean} [invertControl=false]   - Show invert control in toolbar
+
  * @param {boolean} [rotateControl=false]     - Show rotate control in toolbar
  * @param {boolean} [crosshair=false]         - Show crosshair cursor
  * @param {left|center|right} [horizontalAlignment=left]      - Where to align image horizontally. Can be one of "left", "center", or "right"
@@ -114,9 +117,13 @@ const TagAttrs = types.model({
   zoomcontrol: types.optional(types.boolean, true),
   brightnesscontrol: types.optional(types.boolean, false),
   contrastcontrol: types.optional(types.boolean, false),
+  saturationcontrol: types.optional(types.boolean, false),
+  
   rotatecontrol: types.optional(types.boolean, false),
   crosshair: types.optional(types.boolean, false),
   selectioncontrol: types.optional(types.boolean, true),
+  invertcontrol: types.optional(types.boolean, true),
+
 
   // this property is just to turn lazyload off to e2e tests
   lazyoff: types.optional(types.boolean, false),
@@ -497,8 +504,9 @@ const Model = types
         transformOrigin: "left top",
         // We should always set some transform to make the image rendering in the same way all the time
         transform: "translate3d(0,0,0)",
-        filter: `brightness(${self.brightnessGrade}%) contrast(${self.contrastGrade}%)`,
+        filter: `brightness(${self.brightnessGrade}%) contrast(${self.contrastGrade}%) saturate(${self.saturationGrade}%) invert(${self.invertGrade}%)`,
       };
+
       const imgTransform = [];
 
       if (self.zoomScale !== 1) {
@@ -614,7 +622,11 @@ const Model = types
 
       if (self.contrastcontrol) manager.addTool("ContrastTool", Tools.Contrast.create({}, env), "ContrastTool");
 
+      if (self.saturationcontrol) manager.addTool("SaturationTool", Tools.Saturation.create({}, env), "SaturationTool");
+
       if (self.rotatecontrol) manager.addTool("RotateTool", Tools.Rotate.create({}, env), "RotateTool");
+
+      if(self.invertcontrol) manager.addTool("InvertTool", Tools.Invert.create({}, env), "InvertTool");
 
       createImageEntities();
     }
@@ -751,6 +763,14 @@ const Model = types
       self.contrastGrade = value;
     },
 
+    setSaturationGrade(value){
+      self.saturationGrade=value;
+    },
+
+    setInvertGrade(value){
+      self.invertGrade=value;
+    },
+    
     setGridSize(value) {
       self.gridsize = String(value);
     },

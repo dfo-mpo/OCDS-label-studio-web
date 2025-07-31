@@ -311,6 +311,9 @@ case "${1:-start}" in
         stop_services
         sleep 2
         start_uwsgi
+
+        generate_nginx_conf
+
         start_nginx
         check_health
         show_status
@@ -329,6 +332,9 @@ case "${1:-start}" in
         show_help
         ;;
     nginx)
+
+        generate_nginx_conf
+
         start_nginx
         ;;
     *)
