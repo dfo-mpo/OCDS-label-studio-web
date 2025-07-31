@@ -148,11 +148,26 @@ export const ImageEntityMixin = types
       self.currentImageEntity?.setBrightnessGrade(value);
     },
 
+
     get contrastGrade() {
       return self.currentImageEntity?.contrastGrade;
     },
     set contrastGrade(value) {
       self.currentImageEntity?.setContrastGrade(value);
+    },
+
+    get saturationGrade() {
+      return self.currentImageEntity?.saturationGrade;
+    },
+    set saturationGrade(value) {
+      self.currentImageEntity?.setSaturationGrade(value);
+    },
+
+    get invertGrade() {
+      return self.currentImageEntity?.invertGrade;
+    },
+    set invertGrade(value) {
+      self.currentImageEntity?.setInvertGrade(value);
     },
 
     findImageEntity(index) {

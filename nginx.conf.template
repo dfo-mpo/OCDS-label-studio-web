@@ -155,7 +155,7 @@ http {
             proxy_pass $saved_redirect_location;
         }
 
-        # DeepZoom route with session-based auth
+        # DeepZoom route
         location /dzi/ {
             alias ${PROJECT_ROOT}/dzi/;
             autoindex off;

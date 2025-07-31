@@ -39,8 +39,9 @@ export const ImageEntity = types
      * Brightness of Canvas
      */
     brightnessGrade: types.optional(types.number, 100),
-
+    saturationGrade: types.optional(types.number,100),
     contrastGrade: types.optional(types.number, 100),
+    invertGrade: types.optional(types.number, 0),
   })
   .volatile(() => ({
     stageRatio: 1,
@@ -230,4 +231,13 @@ export const ImageEntity = types
     setContrastGrade(grade) {
       self.contrastGrade = grade;
     },
+
+    setSaturationGrade(grade){
+      self.saturationGrade = grade;
+    },
+
+    setInvertGrade(grade){
+      self.invertGrade = grade;
+    },
+
   }));

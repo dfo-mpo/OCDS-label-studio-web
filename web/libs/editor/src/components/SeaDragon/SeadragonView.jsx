@@ -375,7 +375,7 @@ export default observer(
 
       if (item.setStageRef) item.setStageRef(viewer);
     };
-
+    
     onResize = debounce(() => {
       requestAnimationFrame(() => {
         if (!this?.props?.item?.containerRef) return;
@@ -590,6 +590,48 @@ export default observer(
         </ObjectTag>
       );
     }
+
+    //KONVA COMPATIBILITY FOR LABEL STUDIO
+
+    //so zoom.jsx doesnt break
+    container() {
+      // Return the OSD container DOM node by id or ref
+      return document.getElementById(`openseadragon-${this.props.item.name}`);
+    }
+
+    setCursor(cursor) {
+      const container = this.container();
+      if (container) container.style.cursor = cursor;
+    }
+
+    handleZoom(val) {
+      if (this.viewerRef.current) {
+        const vp = this.viewerRef.current.viewport;
+        vp.zoomTo(vp.getZoom() + val * 0.2); // Adjust step size as needed
+      }
+    }
+
+    sizeToFit() {
+      if (this.viewerRef.current) {
+        this.viewerRef.current.viewport.goHome();
+      }
+    }
+
+    sizeToOriginal() {
+      if (this.viewerRef.current) {
+        this.viewerRef.current.viewport.zoomTo(1);
+      }
+    }
+
+    // Then, in componentDidMount, register the instance as stageRef:
+    componentDidMount() {
+      // ... your existing code ...
+      if (this.props.item.setStageRef) {
+        this.props.item.setStageRef(this);  // pass the component instance, NOT the raw viewer
+      }
+      // ... rest of your componentDidMount ...
+    }
+    
   }
 );
 
