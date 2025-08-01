@@ -118,11 +118,11 @@ const TagAttrs = types.model({
   brightnesscontrol: types.optional(types.boolean, false),
   contrastcontrol: types.optional(types.boolean, false),
   saturationcontrol: types.optional(types.boolean, false),
+  invertcontrol: types.optional(types.boolean, false),
   
   rotatecontrol: types.optional(types.boolean, false),
   crosshair: types.optional(types.boolean, false),
   selectioncontrol: types.optional(types.boolean, true),
-  invertcontrol: types.optional(types.boolean, true),
 
 
   // this property is just to turn lazyload off to e2e tests
@@ -623,10 +623,11 @@ const Model = types
       if (self.contrastcontrol) manager.addTool("ContrastTool", Tools.Contrast.create({}, env), "ContrastTool");
 
       if (self.saturationcontrol) manager.addTool("SaturationTool", Tools.Saturation.create({}, env), "SaturationTool");
+      
+      if (self.invertcontrol) manager.addTool("InvertTool", Tools.Invert.create({}, env), "InvertTool");
 
       if (self.rotatecontrol) manager.addTool("RotateTool", Tools.Rotate.create({}, env), "RotateTool");
 
-      if(self.invertcontrol) manager.addTool("InvertTool", Tools.Invert.create({}, env), "InvertTool");
 
       createImageEntities();
     }

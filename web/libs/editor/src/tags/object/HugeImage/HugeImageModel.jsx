@@ -3,7 +3,7 @@
 import { inject } from "mobx-react";
 import Registry from "../../../core/Registry";
 import { ImageModel } from "../Image/Image"; // Import the existing model
-import SeadragonView from "../../../components/SeaDragon/SeadragonView";
+import SeadragonView from "./HugeImageView";
 
 // Just use the existing ImageModel, but change the tag name and type
 const HugeImageModel = ImageModel.named("HugeImageModel").props({
