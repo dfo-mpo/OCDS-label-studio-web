@@ -119,6 +119,8 @@ class FileUpload(models.Model):
             with open(output_annotation_file.replace(".json", "") + ".label_config.xml") as label_data:
                 labels = label_data.read()
 
+            labels = re.sub(r'<Image(\s+[^/>]*?)(\s*/?>)', r'<Image\1 zoom="true" saturationControl="true" invertControl="true" brightnessControl="true" contrastControl="true"\2', labels)
+
             labels = re.sub(r'<(RectangleLabels|PolygonLabels|KeyPointLabels)(\s+[^>]*?)>', 
                        r'<\1\2 opacity="0.0">', labels)
         
