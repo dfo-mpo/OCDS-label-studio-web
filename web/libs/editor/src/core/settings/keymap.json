@@ -81,8 +81,8 @@
     "description": "Delete all regions"
   },
   "region:focus": {
-    "key": "enter",
-    "description": "Focus first focusable region"
+    "key": "NONE",
+    "description": "Focus on region"
   },
   "region:relation": {
     "key": "alt+r",

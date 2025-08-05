@@ -30,6 +30,7 @@ def get_all_columns(project, *_):
     i = 0
 
     data_types = OrderedDict()
+    
 
     # add data types from config again
     project_data_types = {}
@@ -52,6 +53,8 @@ def get_all_columns(project, *_):
         data_types.pop(settings.DATA_UNDEFINED_NAME, None)
     logger.info(f'get_all_columns: project_id={project.id} {data_types=} {project_data_types=}')
 
+    #data_types just contains "Image' for our single image case, i guess its based on labelling config?
+
     for key, data_type in list(data_types.items()):  # make data types from labeling config first
         column = {
             'id': key,
@@ -68,6 +71,22 @@ def get_all_columns(project, *_):
         result['columns'].append(column)
         task_data_children.append(column['id'])
         i += 1
+
+        #a column for file name
+        if(data_type in ['Image', 'Audio', 'AudioPlus', 'Video', 'Unknown']):
+            column = {
+                'id': str(key)+"_file_name",
+                'title': str(key) + (" file name" if key != settings.DATA_UNDEFINED_NAME else ' data name'),
+                'type': 'String',#doesn't seem to change formatting, maybe just a tag, you can change this on the frontend by clicking, but it also changes it on the backend
+                #'parent': 'data',#which folder in the columns list
+                'help': 'File name of the '+ data_type,
+                'target': 'tasks',#no idea, they are all tasks
+                'visibility_defaults': {'explore': True, 'labeling': False},
+                'project_defined': True,#not sure, was false
+            }
+            result['columns'].append(column)
+            #task_data_children.append(column)#add it to the data folder?
+            #not sure
 
     # --- Data root ---
     data_root = {
@@ -86,6 +105,18 @@ def get_all_columns(project, *_):
             'title': 'ID',
             'type': 'Number',
             'help': 'Task ID',
+            'target': 'tasks',
+            'visibility_defaults': {'explore': True, 'labeling': False},
+            'project_defined': False,
+        }
+    ]
+
+    result['columns'] += [
+        {
+            'id': 'num_regions',
+            'title': 'Regions per Annotation',
+            'type': 'Number',
+            'help': "Regions are the bounding boxes or points on an image",
             'target': 'tasks',
             'visibility_defaults': {'explore': True, 'labeling': False},
             'project_defined': False,
@@ -121,7 +152,7 @@ def get_all_columns(project, *_):
             'title': 'Annotations',
             'type': 'Number',
             'target': 'tasks',
-            'help': 'Total annotations per task',
+            'help': 'Total annotations per task (each annotation is an annotator fully labeling an image)',
             'visibility_defaults': {'explore': True, 'labeling': True},
             'project_defined': False,
         },

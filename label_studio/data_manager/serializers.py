@@ -16,6 +16,8 @@ from tasks.serializers import (
     PredictionSerializer,
     TaskSerializer,
 )
+
+
 from users.models import User
 
 from label_studio.core.utils.common import round_floats
@@ -368,6 +370,40 @@ class DataManagerTaskSerializer(TaskSerializer):
     def to_representation(self, obj):
         """Dynamically manage including of some fields in the API result"""
         ret = super(DataManagerTaskSerializer, self).to_representation(obj)
+        
+        #ret is the thing being sent to the front end, so its a dict sturcture of information
+
+        #obj is a class with similar variables to the ret dict, perhaps its the task
+
+        if(obj.data):
+            for name, path in obj.data.items():
+                ret[f"{name}_file_name"]=os.path.basename(path)       
+
+        #if(obj.file_upload_name):
+        #    ret["image_file_name"]=obj.file_upload_name        
+
+        regions = 0
+        if(ret["annotations"]):
+            annotations = ret["annotations"]
+            for annotation in annotations:
+                if(annotation["result"]):
+                    count = len(annotation["result"])
+                    regions += count
+                #else, no results? not sure what to count so just return 0, perhaps could be other annotations with results
+            if(annotations!=0):
+                regions /= len(annotations)
+        ret["num_regions"] = regions
+
+            #ret["num_regions"]
+
+        #self.context:  seems to be a request, with booleans for what to send it from the task
+        #'resolve_uri' =True
+        #'request' =<rest_framework.request.Request: GET '/api/tasks/?page=1&page_size=30&view=3&project=2'>
+        #'project' =<Project: New Project #2 (id=2)>
+        #'drafts' =False
+        #'predictions' =False
+        #'annotations' =False
+
         if not self.context.get('annotations'):
             ret.pop('annotations', None)
         if not self.context.get('predictions'):

@@ -1,7 +1,7 @@
 import chroma from "chroma-js";
 import { observer } from "mobx-react";
 import { type FC, useMemo, useState } from "react";
-import { IconRelationLink, IconPlus, IconTrash, IconWarning, IconEyeClosed, IconEyeOpened } from "@humansignal/icons";
+import { IconRelationLink, IconPlus, IconTrash, IconWarning, IconEyeClosed, IconEyeOpened, IconZoomIn} from "@humansignal/icons";
 import { Button, type ButtonProps } from "../../../common/Button/Button";
 import { CREATE_RELATION_MODE } from "../../../stores/Annotation/LinkingModes";
 import { Block, Elem } from "../../../utils/bem";
@@ -142,12 +142,52 @@ const RegionAction: FC<any> = observer(({ region, annotation, editMode, onEditMo
           style={{ width: 36, height: 32 }}
         />
         <RegionActionButton
-          icon={region.hidden ? <IconEyeClosed /> : <IconEyeOpened />}
-          onClick={region.toggleHidden}
-          displayedHotkey="region:visibility"
-          aria-label={`Focus on selected region`}
+          icon={<IconZoomIn/>}
+          onClick={() => {
+            var object = region.object;
+
+            console.log(`Focus on object: annotation: ${annotation} region: ${region}`);
+            if (typeof object.setZoomPosition === "function" && region) {
+              
+              // Convert region coordinates from percentages to actual image coordinates
+              const regionCenterX = (region.x + region.width / 2) / 100.0;
+              const regionCenterY = (region.y + region.height / 2) / 100.0;
+              
+              const regionCoverageX = region.width / 100.0;
+              const regionCoverageY = region.height / 100.0;
+              
+              // Calculate zoom to fit region with some padding
+              const padding = 0.1; // 10% padding around the region
+              const zoomX = 1.0 / (regionCoverageX + padding);
+              const zoomY = 1.0 / (regionCoverageY + padding);
+              const zoom = Math.min(zoomX, zoomY);
+              
+              // Apply zoom constraints from the image viewer
+              const finalZoom = Math.max(zoom, object.negativezoom ? 0.1 : 1.0);
+              
+              object.setZoom(finalZoom);
+              object.updateImageAfterZoom();
+              
+              // Calculate position to center the region in the viewport
+              // The position should move the region center to the viewport center
+              const viewportCenterX = object.canvasSize.width / 2;
+              const viewportCenterY = object.canvasSize.height / 2;
+              
+              const regionCenterInStageX = regionCenterX * object.stageWidth * object.zoomScale;
+              const regionCenterInStageY = regionCenterY * object.stageHeight * object.zoomScale;
+              
+              const newX = viewportCenterX - regionCenterInStageX;
+              const newY = viewportCenterY - regionCenterInStageY;
+              
+              console.log(`Set position: ${newX}, ${newY} and zoomScale: ${object.zoomScale} zoom: ${finalZoom}`);
+              object.setZoomPosition?.(newX, newY);
+              object.updateImageAfterZoom();
+            }
+          }}
+          displayedHotkey="region:focus"
+          aria-label={`Focus selected region`}
         />
-        <RegionActionButton
+          <RegionActionButton
           icon={region.hidden ? <IconEyeClosed /> : <IconEyeOpened />}
           onClick={region.toggleHidden}
           displayedHotkey="region:visibility"
@@ -159,7 +199,7 @@ const RegionAction: FC<any> = observer(({ region, annotation, editMode, onEditMo
           icon={<IconTrash />}
           onClick={() => annotation.deleteRegion(region)}
           displayedHotkey="region:delete"
-          aria-label="Delete selected region (HUUUUWOAAAAAAAAAAAAAAAAAAAHHHGGHH)"
+          aria-label="Delete selected region"
         />
       </Elem>
     </Block>

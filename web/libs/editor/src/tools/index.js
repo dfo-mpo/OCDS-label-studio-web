@@ -13,6 +13,8 @@ import { Brightness } from "./Brightness";
 import { Contrast } from "./Contrast";
 import { MagicWand } from "./MagicWand";
 import { Selection } from "./Selection";
+import { Saturation } from "./Saturation";
+import { Invert } from "./Invert";
 
 export {
   Brush,
@@ -24,6 +26,8 @@ export {
   Ellipse,
   Brightness,
   Contrast,
+  Saturation,
+  Invert,
   Rotate,
   Zoom,
   MagicWand,
