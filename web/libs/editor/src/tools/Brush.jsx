@@ -239,7 +239,15 @@ const BrushCursorMixin = types
     updateCursor() {
       if (!self.selected || !self.obj?.stageRef) return;
       const stage = self.obj.stageRef;
-      stage.container().style.cursor = self.cursorStyleRule;
+      //stage.container().style.cursor = self.cursorStyleRule;
+
+      if (typeof stage.container === "function") {
+        stage.container().style.cursor = self.cursorStyleRule;
+      } else{
+        stage.container.style.cursor = self.cursorStyleRule;
+      }
+
+
     },
   }));
 

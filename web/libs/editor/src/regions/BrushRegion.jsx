@@ -728,7 +728,14 @@ const HtxBrushView = ({ item, setShapeRef }) => {
             }
 
             if (store.annotationStore.selected.isLinkingMode) {
-              stage.container().style.cursor = "default";
+              //stage.container().style.cursor = "default";
+
+              if (typeof stage.container() === "function") {
+                stage.container().style.cursor = "default";
+              }
+              else{
+                stage.container.style.cursor = "default";
+              }
             }
 
             item.setHighlight(false);

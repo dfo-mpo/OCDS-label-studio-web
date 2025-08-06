@@ -78,7 +78,13 @@ const _Tool = types
     },
 
     get stageContainer() {
-      return self.obj.stageRef.container();
+      
+      //return self.obj.stageRef.container();
+      if (typeof self.obj.stageRef.container === "function") {
+        return self.obj.stageRef.container()     
+      } else{
+        return self.obj.stageRef.container      
+      }
     },
   }))
   .actions((self) => ({

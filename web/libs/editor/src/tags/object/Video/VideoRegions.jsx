@@ -272,7 +272,13 @@ const Shape = observer(({ reg, frame, stageRef, ...props }) => {
           const annotation = getParentOfType(reg, Annotation);
 
           if (annotation && annotation.isLinkingMode) {
-            stageRef.current.container().style.cursor = Constants.DEFAULT_CURSOR;
+            //stageRef.current.container().style.cursor = Constants.DEFAULT_CURSOR;
+
+            if (typeof stageRef.current.container === "function") {
+              stageRef.current.container().style.cursor = Constants.DEFAULT_CURSOR;
+            } else{
+              stageRef.current.container.style.cursor = Constants.DEFAULT_CURSOR;
+            }
           }
 
           reg.setHighlight(false);

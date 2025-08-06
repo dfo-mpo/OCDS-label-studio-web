@@ -511,7 +511,14 @@ const HtxRectangleView = ({ item, setShapeRef }) => {
         onClick={(e) => {
           if (item.parent.getSkipInteractions()) return;
           if (store.annotationStore.selected.isLinkingMode) {
-            stage.container().style.cursor = Constants.DEFAULT_CURSOR;
+
+            //stage.container().style.cursor = Constants.DEFAULT_CURSOR;
+            if (typeof stage.container === "function") {
+              stage.container().style.cursor = Constants.DEFAULT_CURSOR;
+            } else{
+              stage.container.style.cursor = Constants.DEFAULT_CURSOR;
+            }
+
           }
 
           item.setHighlight(false);

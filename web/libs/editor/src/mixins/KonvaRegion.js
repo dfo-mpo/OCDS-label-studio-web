@@ -56,7 +56,14 @@ export const KonvaRegionMixin = types
       updateCursor(isHovered = false) {
         const stage = self.parent?.stageRef;
         if (!stage) return;
-        const style = stage.container().style;
+    
+        if (typeof stage.container === "function") {
+          const style = stage.container().style;
+        }
+        else{
+          const style = stage.container.style; 
+        }
+        
 
         if (isHovered) {
           if (self.annotation.isLinkingMode) {

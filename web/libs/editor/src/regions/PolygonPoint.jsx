@@ -139,7 +139,15 @@ const PolygonPointRelativeCoords = types
       const stage = self.stage?.stageRef;
 
       if (!stage) return;
-      stage.container().style.cursor = "crosshair";
+                
+      //stage.container().style.cursor = "crosshair";
+
+      if (typeof stage.container() === "function") {
+        stage.container().style.cursor = "crosshair";
+      }
+      else{
+        stage.container.style.cursor = "crosshair";
+      }
 
       /**
        * Check if polygon > 2 points and closed point
@@ -175,7 +183,15 @@ const PolygonPointRelativeCoords = types
       const stage = self.stage?.stageRef;
 
       if (!stage) return;
+      //stage.container().style.cursor = "default";
+
+      if (typeof stage.container() === "function") {
       stage.container().style.cursor = "default";
+      }
+      else{
+      stage.container.style.cursor = "default";
+      }
+
 
       if (self.style === "rectangle") {
         t.setX(t.x() + t.width() / 2);
@@ -266,14 +282,32 @@ const PolygonPointView = observer(({ item, name }) => {
       const stage = item.stage?.stageRef;
 
       if (!stage) return;
+      //stage.container().style.cursor = "crosshair";
+
+      if (typeof stage.container() === "function") {
       stage.container().style.cursor = "crosshair";
+      }
+      else{
+      stage.container.style.cursor = "crosshair";
+      }
+
+      
+
     },
 
     onMouseOut: () => {
       const stage = item.stage?.stageRef;
 
       if (!stage) return;
+      //stage.container().style.cursor = "default";
+
+      if (typeof stage.container() === "function") {
       stage.container().style.cursor = "default";
+      }
+      else{
+      stage.container.style.cursor = "default";
+      }
+
     },
 
     onTransformEnd(e) {

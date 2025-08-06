@@ -642,7 +642,17 @@ const HtxPolygonView = ({ item, setShapeRef }) => {
         if (!item.closed) return;
 
         if (store.annotationStore.selected.isLinkingMode) {
+          //stage.container().style.cursor = Constants.DEFAULT_CURSOR;
+
+          if (typeof stage.container() === "function") {
           stage.container().style.cursor = Constants.DEFAULT_CURSOR;
+          }
+          else{
+          stage.container.style.cursor = Constants.DEFAULT_CURSOR;
+          }
+
+
+
         }
 
         item.setHighlight(false);

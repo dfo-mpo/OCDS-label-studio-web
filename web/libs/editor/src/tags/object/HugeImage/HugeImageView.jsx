@@ -271,10 +271,17 @@ export default observer(
         wrapHorizontal: false,
         wrapVertical: false,
         visibilityRatio: 1,
+        gestureSettingsMouse: {//disable built-in mouse controls
+          clickToZoom: false,
+          dblClickToZoom: false,
+          flickEnabled: false,
+          dragToPan: false,   
+          scrollToZoom: false,
+        },
       });
 
 
-       // ---- Shim Konva-like API ----
+      // ---- Shim Konva-like API ----
       viewer.getAbsoluteTransform = function () {
         return {
           copy() { return this; },
@@ -340,9 +347,21 @@ export default observer(
       };
 
       viewer.addHandler("canvas-click", handleMouseEvent("click"));
-      viewer.addHandler("canvas-drag", handleMouseEvent("drag"));
+      //viewer.addHandler("canvas-drag", handleMouseEvent("drag"));
       viewer.addHandler("canvas-press", handleMouseEvent("mousedown"));
       viewer.addHandler("canvas-release", handleMouseEvent("mouseup"));
+
+
+      viewer.addHandler("canvas-drag", (event) => {
+        const activeTool = item.manager.activeTool
+
+        if (activeTool?.toolName === "Pan") {
+          const deltaPoint = viewer.viewport.deltaPointsFromPixels(event.delta);
+          viewer.viewport.panBy(deltaPoint);
+          viewer.viewport.applyConstraints();
+        }
+      });
+
 
       viewer.addHandler("canvas-move", (event) => {
         if (item.getSkipInteractions && item.getSkipInteractions()) return;
@@ -376,7 +395,7 @@ export default observer(
 
       if (item.setStageRef) item.setStageRef(viewer);
     };
-    
+
     onResize = debounce(() => {
       requestAnimationFrame(() => {
         if (!this?.props?.item?.containerRef) return;
@@ -407,7 +426,7 @@ export default observer(
       }
     };
 
-    getAbsoluteTransform(){
+    getAbsoluteTransform() {
       print("Get absolute transform from sea dragon")
       return this.imageTransform.getAbsoluteTransform()
     }
@@ -461,74 +480,44 @@ export default observer(
         styles.wrapperComponent,
         item.images.length > 1 ? styles.withGallery : styles.wrapper,
       ];
-      if (item.isMultiItem) wrapperClasses.push(styles.withPagination);
 
-      const containerStyle = {};
-      if (getRoot(item).settings.fullscreen === false) {
-        containerStyle.maxWidth = item.maxwidth;
-        containerStyle.maxHeight = item.maxheight;
-        containerStyle.width = item.width;
-        containerStyle.height = item.height;
-      }
-      if (!store.settings.enableSmoothing && item.zoomScale > 1) {
-        containerStyle.imageRendering = "pixelated";
-      }
+      const containerStyle = {
+        position: "relative",
+        width: "100%",
+        height: "400px",
+        background: "#000",
+        overflow: "hidden",
+      };
 
       const seadragonId = `openseadragon-${item.name}`;
 
+      const entity = item.currentImageEntity;
+      const filters = `saturate(${entity.saturationGrade}%) brightness(${entity.brightnessGrade}%) contrast(${entity.contrastGrade}%)  invert(${entity.invertGrade}%)`
+
       return (
         <ObjectTag item={item} className={wrapperClasses.join(" ")}>
-          {item.isMultiItem && (
-            <div
-              className={styles.pagination}
-              title={store.annotationStore.viewingAll ? "Pagination is not supported in View All Annotations" : undefined}
-            >
-              <Pagination
-                size="small"
-                outline={false}
-                align="left"
-                noPadding
-                hotkey={{ prev: "image:prev", next: "image:next" }}
-                currentPage={item.currentImage + 1}
-                totalPages={item.parsedValueList.length}
-                onChange={(n) => item.setCurrentImage(n - 1)}
-                pageSizeSelectable={false}
-                disabled={store.annotationStore.viewingAll}
-              />
-            </div>
-          )}
-
           <div
             ref={(node) => {
               item.setContainerRef(node);
               this.attachObserver(node);
             }}
-            className={styles.container}
             style={containerStyle}
           >
-            <div
-              ref={(node) => {
-                this.filler = node;
-              }}
-              className={styles.filler}
-              style={{ width: "100%", marginTop: item.fillerHeight }}
-            />
-
+            {/* OpenSeadragon Viewer */}
             <div
               id={seadragonId}
               style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
                 width: "100%",
-                height: "400px",
-                position: "relative",
-                background: "#000",
+                height: "100%",
+                filter: filters,
               }}
             />
 
-            {(this.props.item.stageWidth <= 1 || !item.hasTools) ? (
-              <div className={styles.loading}>
-                <LoadingOutlined />
-              </div>
-            ) : item.imageIsLoaded ? (
+            {/* Overlays */}
+            {item.imageIsLoaded && (
               <div
                 style={{
                   position: "absolute",
@@ -553,43 +542,39 @@ export default observer(
                   />
                 )}
               </div>
-            ) : null}
+            )}
+
+            {/* Toolbar pinned to top-right */}
+            {item.hasTools && item.imageIsLoaded && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "10px",
+                  right: "10px",
+                  zIndex: 1100,
+                }}
+              >
+                {this.renderTools()}
+              </div>
+            )}
+
+            {/* Loading indicator */}
+            {(this.props.item.stageWidth <= 1 || !item.hasTools) && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  color: "#fff",
+                }}
+              >
+                <LoadingOutlined />
+              </div>
+            )}
           </div>
-
-          {item.hasTools && item.imageIsLoaded && this.renderTools()}
-
-          {item.images.length > 1 && (
-            <div
-              className={styles.gallery}
-              style={{
-                position: "absolute",
-                bottom: "-80px",
-                display: "flex",
-                overflowX: "auto",
-                width: "100%",
-                paddingBottom: "8px",
-              }}
-            >
-              {item.images.map((src, i) => (
-                <img
-                  alt=""
-                  key={src}
-                  src={src}
-                  height="60"
-                  onClick={() => item.setCurrentImage(i)}
-                  style={{
-                    cursor: "pointer",
-                    marginRight: "4px",
-                    border: i === item.currentImage ? "4px solid #1890ff" : "4px solid transparent",
-                    maxWidth: "120px",
-                    objectFit: "cover",
-                  }}
-                />
-              ))}
-            </div>
-          )}
         </ObjectTag>
-      );
+      )
     }
 
     //KONVA COMPATIBILITY FOR LABEL STUDIO
@@ -618,12 +603,13 @@ export default observer(
       }
     }
 
+
     sizeToOriginal() {
       if (this.viewerRef.current) {
         this.viewerRef.current.viewport.zoomTo(1);
       }
     }
-    
+
   }
 );
 

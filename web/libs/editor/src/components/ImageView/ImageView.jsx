@@ -221,7 +221,14 @@ const TransformerBack = observer(({ item }) => {
           }}
           onMouseOver={(ev) => {
             if (!item.annotation.isLinkingMode) {
-              ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
+              //ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
+
+              if (typeof ev.target.getStage().container() === "function") {
+                ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
+              }
+              else{
+                ev.target.getStage().container.style.cursor = Constants.POINTER_CURSOR;
+              }
             }
           }}
           onMouseOut={(ev) => {

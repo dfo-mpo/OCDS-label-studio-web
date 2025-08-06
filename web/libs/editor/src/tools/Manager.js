@@ -111,7 +111,11 @@ class ToolsManager {
     const stage = this.obj?.stageRef;
 
     if (stage) {
-      stage.container().style.cursor = "default";
+      if (typeof stage.container === "function") {
+        stage.container().style.cursor = "default";
+      } else{
+        container.style.cursor = "default";
+      }
     }
   }
 
