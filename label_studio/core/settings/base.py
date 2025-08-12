@@ -27,6 +27,7 @@ if JSON_LOG:
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'faker': {'level': 'WARNING', 'propagate': False},  # make faker shut up about missing localization
     'formatters': {
         'json': {
             '()': 'label_studio.core.utils.formatter.CustomJsonFormatter',
@@ -48,6 +49,7 @@ LOGGING = {
         'level': os.environ.get('LOG_LEVEL', 'DEBUG'),
     },
     'loggers': {
+        'faker': {'level': 'WARNING', 'propagate': False},  # make faker shut up about missing localization
         'pykwalify': {'level': 'ERROR', 'propagate': False},
         'tavern': {'level': 'ERROR', 'propagate': False},
         'asyncio': {'level': 'WARNING'},
@@ -80,6 +82,10 @@ from label_studio.core.utils.io import get_data_dir
 from label_studio.core.utils.params import get_bool_env, get_env
 
 logger = logging.getLogger(__name__)
+
+faker_logger = logging.getLogger('faker')
+faker_logger.setLevel(logging.INFO)  # make faker shut up about localization
+
 SILENCED_SYSTEM_CHECKS = []
 
 # Hostname is used for proper path generation to the resources, pages, etc

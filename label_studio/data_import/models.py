@@ -106,10 +106,17 @@ class FileUpload(models.Model):
         if isinstance(tasks, dict) and 'images' in tasks and 'annotations' in tasks:
             input_annotation_file = self.file.path 
             output_annotation_file = os.path.splitext(input_annotation_file)[0] + "_ls" + os.path.splitext(input_annotation_file)[1]
-            convert_coco_to_ls(input_file = self.file.path, \
-                               out_file = output_annotation_file)#, \
-                               #image_root_url="/data"+os.path.dirname(self.file.path).split('media')[1])
+            convert_coco_to_ls(input_file = self.file.path, out_file = output_annotation_file, image_root_url=os.path.dirname(self.file.path).split('media')[1])
             
+            #, image_root_url="/Data/"+os.path.dirname(self.file.path).split('media')[1])
+            #this changes the path to match our syntax,
+            #we use ?d=Folder
+            #not ?d=data/Folder, its an ENV variable called LOCAL_FILES_SERVING_ENABLED
+            #so no appending required anymore, the local file document root will make it look only in the /data/ directory 
+            #and LOCAL_FILES_DOCUMENT_ROOT (its prefixed LABEL_STUDIO_ as an env, but no prefix as an internal setting)
+            #image_root_url="/Data/"+os.path.dirname(self.file.path).split('media')[1])
+            
+
             with open(output_annotation_file) as annotation_data:
                 try:
                     tasks = json.load(annotation_data)
