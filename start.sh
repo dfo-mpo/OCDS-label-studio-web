@@ -57,6 +57,12 @@ NGINX_PORT=8080
 # Export environment variables needed by Django/Label Studio
 export DJANGO_SETTINGS_MODULE=core.settings.label_studio
 export LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+export FRONTEND_HMR=false
+export FRONTEND_HOSTNAME=""
+export LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/data/
+
+# if FRONTEND_HOSTNAME is defined it automatically looks for it there instead of static
+# and if HMR is true then it refreshes or looks for changes? its not enable and arg if enabled, its enable HMR and override frontend path
 
 set -e  # Exit on any error
 

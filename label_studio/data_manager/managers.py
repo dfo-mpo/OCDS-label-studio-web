@@ -15,6 +15,7 @@ from django.db import models
 from django.db.models import (
     Aggregate,
     Avg,
+    Count,
     Case,
     DateTimeField,
     Exists,
@@ -682,6 +683,11 @@ def file_upload(queryset):
 def dummy(queryset):
     return queryset
 
+def num_regions(queryset):
+    if settings.DJANGO_DB == settings.DJANGO_DB_SQLITE:
+        return queryset.annotate(num_regions=Count('annotations__result'))
+    else:
+        return queryset.annotate(num_regions=Count('annotations__result'))
 
 settings.DATA_MANAGER_ANNOTATIONS_MAP = {
     'avg_lead_time': annotate_avg_lead_time,
@@ -695,6 +701,7 @@ settings.DATA_MANAGER_ANNOTATIONS_MAP = {
     'file_upload': file_upload,
     'draft_exists': annotate_draft_exists,
     'storage_filename': annotate_storage_filename,
+    'num_regions': num_regions
 }
 
 

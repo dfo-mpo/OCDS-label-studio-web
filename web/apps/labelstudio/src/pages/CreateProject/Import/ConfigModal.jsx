@@ -4,7 +4,7 @@ import { CopyableTooltip } from "../../../components/CopyableTooltip/CopyableToo
 
 export function configModal(data, closeCallBack) {
   modal({
-    title: "Import Summary",
+    title: "Label Interface Config Suggestion",
     body: () => (
       <div style={{
         padding: '20px',
