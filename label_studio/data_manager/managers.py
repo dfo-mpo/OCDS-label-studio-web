@@ -679,15 +679,64 @@ def annotate_draft_exists(queryset):
 def file_upload(queryset):
     return queryset.annotate(file_upload_field=F('file_upload__file'))
 
-
 def dummy(queryset):
     return queryset
 
-def num_regions(queryset):
-    if settings.DJANGO_DB == settings.DJANGO_DB_SQLITE:
-        return queryset.annotate(num_regions=Count('annotations__result'))
-    else:
-        return queryset.annotate(num_regions=Count('annotations__result'))
+def annotate_avg_regions(queryset):
+    from django.db.models import Sum, Func, IntegerField, ExpressionWrapper
+
+    queryset = queryset.annotate(
+        total_regions=Coalesce(
+            Sum(
+                Func(
+                    F('annotations__result'),
+                    function='json_array_length',
+                    output_field=IntegerField()
+                )
+            ),
+            0
+        ),
+        num_annotations=Coalesce(Count('annotations'), 0)
+    )
+    queryset = queryset.annotate(
+        avg_regions_per_annotation=Case(
+            When(num_annotations=0, then=Value(0.0)),
+            default=ExpressionWrapper(
+                F('total_regions') * 1.0 / F('num_annotations'),
+                output_field=FloatField()
+            ),
+            output_field=FloatField()
+        )
+    )
+    return queryset
+
+    #number of regions, works, but not an average
+    # return queryset.annotate(
+    #     num_regions=Coalesce(
+    #         Sum(
+    #             Func(
+    #                 F('annotations__result'),
+    #                 function='json_array_length',
+    #                 output_field=IntegerField()
+    #             )
+    #         ),
+    #         0
+    #     )
+    # )
+
+    #almost, works in dbshell but not in django
+    # return queryset.annotate(
+    # num_regions=RawSQL(
+    #     """
+    #     SELECT SUM(json_array_length(result))
+    #     FROM task_completion
+    #     WHERE task_id = task_completion.task_id
+    #     """,
+    #     ()
+    # ))
+
+def image_file_name(queryset):
+    return queryset.annotate(image_file_name=F('file_upload__file'))
 
 settings.DATA_MANAGER_ANNOTATIONS_MAP = {
     'avg_lead_time': annotate_avg_lead_time,
@@ -701,7 +750,8 @@ settings.DATA_MANAGER_ANNOTATIONS_MAP = {
     'file_upload': file_upload,
     'draft_exists': annotate_draft_exists,
     'storage_filename': annotate_storage_filename,
-    'num_regions': num_regions
+    'avg_regions_per_annotation': annotate_avg_regions,
+    'image_file_name': image_file_name
 }
 
 

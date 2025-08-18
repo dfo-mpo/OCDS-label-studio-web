@@ -111,9 +111,11 @@ def get_all_columns(project, *_):
         }
     ]
 
+
+
     result['columns'] += [
         {
-            'id': 'num_regions',
+            'id': 'avg_regions_per_annotation',
             'title': 'Regions per Annotation',
             'type': 'Number',
             'help': "Regions are the bounding boxes or points on an image",

@@ -392,9 +392,9 @@ class DataManagerTaskSerializer(TaskSerializer):
                 #else, no results? not sure what to count so just return 0, perhaps could be other annotations with results
             if(annotations!=0):
                 regions /= len(annotations)
-        ret["num_regions"] = regions
+        ret["avg_regions_per_annotation"] = regions
 
-            #ret["num_regions"]
+            #ret["avg_regions_per_annotation"]
 
         #self.context:  seems to be a request, with booleans for what to send it from the task
         #'resolve_uri' =True
