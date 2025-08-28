@@ -82,7 +82,7 @@ def get_all_columns(project, *_):
                 'help': 'File name of the '+ data_type,
                 'target': 'tasks',#no idea, they are all tasks
                 'visibility_defaults': {'explore': True, 'labeling': False},
-                'project_defined': True,#not sure, was false
+                'project_defined': False,#not sure, was false
             }
             result['columns'].append(column)
             #task_data_children.append(column)#add it to the data folder?
@@ -118,9 +118,9 @@ def get_all_columns(project, *_):
             'id': 'avg_regions_per_annotation',
             'title': 'Regions per Annotation',
             'type': 'Number',
-            'help': "Regions are the bounding boxes or points on an image",
+            'help': "Regions are the bounding boxes or points on an image or video",
             'target': 'tasks',
-            'visibility_defaults': {'explore': True, 'labeling': False},
+            'visibility_defaults': {'explore': True, 'labeling': True},
             'project_defined': False,
         }
     ]
@@ -155,7 +155,7 @@ def get_all_columns(project, *_):
             'type': 'Number',
             'target': 'tasks',
             'help': 'Total annotations per task (each annotation is an annotator fully labeling an image)',
-            'visibility_defaults': {'explore': True, 'labeling': True},
+            'visibility_defaults': {'explore': True, 'labeling': False},
             'project_defined': False,
         },
         {

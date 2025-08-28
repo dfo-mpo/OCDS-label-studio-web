@@ -126,11 +126,39 @@ class FileUpload(models.Model):
             with open(output_annotation_file.replace(".json", "") + ".label_config.xml") as label_data:
                 labels = label_data.read()
 
+            #add controls
             labels = re.sub(r'<Image(\s+[^/>]*?)(\s*/?>)', r'<Image\1 zoom="true" saturationControl="true" invertControl="true" brightnessControl="true" contrastControl="true"\2', labels)
 
+            #add opacity
             labels = re.sub(r'<(RectangleLabels|PolygonLabels|KeyPointLabels)(\s+[^>]*?)>', 
                        r'<\1\2 opacity="0.0">', labels)
-        
+            
+            #remove duplicate polygon labels
+
+            # --- remove PolygonLabels if identical to RectangleLabels ---
+            def get_label_values(block: str) -> set:
+                """Extract set of <Label value="..."/> from a block string."""
+                return set(re.findall(r'<Label\s+[^>]*value="([^"]+)"', block))
+
+            polygon_match = re.search(r'(<PolygonLabels.*?</PolygonLabels>)', labels, re.DOTALL)
+            rect_match = re.search(r'(<RectangleLabels.*?</RectangleLabels>)', labels, re.DOTALL)
+
+            if polygon_match and rect_match:
+                polygon_block = polygon_match.group(1)
+                rect_block = rect_match.group(1)
+
+                if get_label_values(polygon_block) == get_label_values(rect_block):
+                    # remove polygon block + header
+                    labels = labels.replace(polygon_block, "")
+                    labels = re.sub(r'\s*<Header\s+[^>]*value="(RectangleLabels|PolygonLabels)"\s*/?>', "", labels)
+
+                #rename the name from rectangle_labels to label
+                # labels = re.sub(
+                #     r'<RectangleLabels([^>]*)name="[^"]+"',
+                #     r'<RectangleLabels\1name="label"',
+                #     labels
+                # )        
+                
         if isinstance(tasks, dict):
             tasks = [tasks]
         
