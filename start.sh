@@ -325,6 +325,24 @@ case "${1:-start}" in
         show_status
         print_success "Label Studio restarted successfully!"
         ;;
+    build)
+        # Build frontend
+        cd "$REPO_ROOT/web" || { print_error "Frontend directory not found: $REPO_ROOT/web"; exit 1; }
+        
+        print_status "Installing frontend dependencies..."
+        yarn install --frozen-lockfile
+        
+        print_status "Building frontend assets..."
+        yarn run build
+        
+        # Collect static files with Django
+        cd "$LABEL_STUDIO_DIR" || { print_error "Label Studio directory not found: $LABEL_STUDIO_DIR"; exit 1; }
+        
+        print_status "Collecting static files with Django..."
+        poetry run python manage.py collectstatic --no-input --clear
+        
+        print_success "Frontend build and static collection completed"
+    ;;
     status)
         show_status
         ;;
