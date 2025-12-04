@@ -332,97 +332,54 @@ export default observer(
       });
 
 
-      const handleMouseEvent = (eventType) => (event) => {
-        const webPoint = event.position; // Mouse position in viewer container (includes black bars)
-        const viewportPoint = viewer.viewport.pointFromPixel(webPoint); // 0-1 coordinates
-        const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint); // Pixel coordinates on image
-        
-        const imageTopLeft = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0));
-        const imageBottomRight = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(1, 1));
-
-        const width = imageBottomRight.x - imageTopLeft.x 
-        const height = imageBottomRight.y- imageTopLeft.y 
-        
-        // Adjust coordinates to account for margins (black bars)
-        const x = webPoint.x - imageTopLeft.x
-        const y = webPoint.y - imageTopLeft.y;
-        
-        console.log("webPoint: ", webPoint
-        ,"\imageTopLeft: ", imageTopLeft
-        ,"\nimageBottomRight: ", imageBottomRight
-        ,"\nAdjusted x, y:", x, y);
-        
-        // Only trigger event if click is within the inner container (not on black bars)
-        if (x >= 0 && x <= width && y >= 0 && y <= height) {
-          item.event(eventType, event.originalEvent, x, y);
-          //console.log("Click inside image bounds, ignoring");
-        } else {
-          console.log("Click outside image bounds, ignoring");
-        }
-      };
-      
-
       // const handleMouseEvent = (eventType) => (event) => {
-      //   //if (item.getSkipInteractions && item.getSkipInteractions()) return;
-
-      //   console.log("Mouse event: ", event)
+      //   const webPoint = event.position; // Mouse position in viewer container (includes black bars)
+      //   const viewportPoint = viewer.viewport.pointFromPixel(webPoint); // 0-1 coordinates
+      //   const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint); // Pixel coordinates on image
         
-      //   const webPoint = event.position;
-      //   const viewportPoint = viewer.viewport.pointFromPixel(webPoint);
-      //   const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint);
+      //   const imageTopLeft = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0));
+      //   const imageBottomRight = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(1, 1));
+
+      //   const width = imageBottomRight.x - imageTopLeft.x 
+      //   const height = imageBottomRight.y- imageTopLeft.y 
         
-      //   // var width  = 1.0 / viewer.viewport.getZoom(current);
-      //   // var height = viewer.viewportwidth / viewer.viewport.getAspectRatio();
-
-
-      //   console.log("webPoint: ", webPoint)
-      //   console.log("viewportPoint: ", viewportPoint)
-      //   console.log("imagePoint: ", imagePoint)
+      //   // Adjust coordinates to account for margins (black bars)
+      //   const x = webPoint.x - imageTopLeft.x
+      //   const y = webPoint.y - imageTopLeft.y;
         
-      //   const x = webPoint.x
-      //   const y = webPoint.y;
-
-      //   //the events offset is out of bounds, so it cancels drawing on the image
-      //   //at         if (!self.isAllowedInteraction(ev)) return;
-      //   //in drawingtool.js
-      //   //either adjust our position to match the canvas size
-      //   //or adjust the canvas size variable to understand the image is larger now
-      //   //but that might require adjusting other assumptions about canvas size
-      //   //so maybe just adjust our offset, and maybe the annotations thing
-      //   //they're in 0-1 so thats the same for canvas as for image
-
-      //   //webpoint is the openseadragon component in top left origin, in pixels
-      //   //viewportpoint is 0-1 the image
-      //   //imagePoint is pixels the image
-      //   //theres black bars on the image because its a different aspect ratio than the component itself
-      //   //those will have negative or >> height values for imagePoint and viewPoint
-      //   //but webpoint is including those bars as well so its fine (its the whole component)
-      //   //annotations should be placed with viewportPoint
-      //   //the internal canvasSize is maybe acting weird
-      //   //can we find a maxImageSize variable or a canvasSizeVariable?
-
+      //   console.log("webPoint: ", webPoint
+      //   ,"\imageTopLeft: ", imageTopLeft
+      //   ,"\nimageBottomRight: ", imageBottomRight
+      //   ,"\nAdjusted x, y:", x, y);
         
-      //   item.event(eventType, event.originalEvent, x, y);
+      //   // Only trigger event if click is within the inner container (not on black bars)
+      //   if (x >= 0 && x <= width && y >= 0 && y <= height) {
+      //     item.event(eventType, event.originalEvent, x, y);
+      //     //console.log("Click inside image bounds, ignoring");
+      //   } else {
+      //     console.log("Click outside image bounds, ignoring");
+      //   }
       // };
-
+      
       //the tools have no dragEv
       //and seadragon has no canvas-move ev
       //though perhaps theres one internal if we look harder
       //but there is canvas-drag
 
-      viewer.addHandler("canvas-click", handleMouseEvent("click"));
-      viewer.addHandler("canvas-drag", handleMouseEvent("mousemove"));
-      viewer.addHandler("canvas-press", handleMouseEvent("mousedown"));
-      viewer.addHandler("canvas-release", handleMouseEvent("mouseup"));
-      //viewer.addHandler("canvas-move", handleMouseEvent("mousemove"));
-      viewer.addHandler("canva-scroll", handleMouseEvent("scroll"));
-      viewer.addHandler("canvas-double-click", handleMouseEvent("dblclick"));
+      // viewer.addHandler("canvas-click", handleMouseEvent("click"));
+      // viewer.addHandler("canvas-drag", handleMouseEvent("mousemove"));
+      // viewer.addHandler("canvas-press", handleMouseEvent("mousedown"));
+      // viewer.addHandler("canvas-release", handleMouseEvent("mouseup"));
+      // //viewer.addHandler("canvas-move", handleMouseEvent("mousemove"));
+      // viewer.addHandler("canva-scroll", handleMouseEvent("scroll"));
+      // viewer.addHandler("canvas-double-click", handleMouseEvent("dblclick"));
 
-      viewer.addHandler('update-viewport', () => {
-        // Sync Konva stage transform to match OSD viewport
-        item.seadragon_zoom = viewer.viewport.getZoom();
-        item.seadragon_pan = viewer.viewport.getCenter();
-      });
+      // viewer.addHandler('update-viewport', () => {
+      //   console.log("Called container placeholder")
+      //   // Sync Konva stage transform to match OSD viewport
+      //   item.seadragon_zoom = viewer.viewport.getZoom();
+      //   item.seadragon_pan = viewer.viewport.getCenter();
+      // });
 
       if (item.setStageRef) item.setStageRef(viewer);
     };
@@ -557,7 +514,6 @@ export default observer(
                 {/*add code for if not loaded show loading thing instead*/}
               {<EntireStage
                 item={item}
-                everything = {this}
                 viewerRef={this.viewerRef}
                 crosshairRef={this.crosshairRef}
                 onClick={this.handleOnClick}
@@ -614,15 +570,18 @@ export default observer(
     //so zoom.jsx doesnt break
     container() {
       // Return the OSD container DOM node by id or ref
+      console.log("Called container placeholder")
       return document.getElementById(`openseadragon-${this.props.item.name}`);
     }
 
     setCursor(cursor) {
+      console.log("Called cursor placeholder")
       const container = this.container();
       if (container) container.style.cursor = cursor;
     }
 
     handleZoom(val) {
+      console.log("Called handle zoom")
       if(this.viewerRef){
         if (this.viewerRef.current) {
           const vp = this.viewerRef.current.viewport;
@@ -632,6 +591,7 @@ export default observer(
     }
 
     sizeToFit() {
+      console.log("Called size to fit")
       if (this.viewerRef.current) {
         this.viewerRef.current.viewport.goHome();
       }
@@ -639,6 +599,7 @@ export default observer(
 
 
     sizeToOriginal() {
+      console.log("Called size to original")
       if (this.viewerRef.current) {
         this.viewerRef.current.viewport.zoomTo(1);
       }
@@ -669,7 +630,6 @@ const RegionsContent = observer(({ item }) => {
 const EntireStage = observer(
   ({
     item,
-    everything,
     viewerRef,
     imagePositionClassnames,
     state,
@@ -711,22 +671,6 @@ const EntireStage = observer(
     };
 
     // It takes one or two render calls, but eventually viewerRef.current does get assigned a value
-    
-      // if(item.viewerRef){
-      //   console.log("Viewer ref IS filled!")
-      // }
-      
-      // if(everything.viewerRef.current){
-      //   console.log("its in everything at least")
-      // }
-      
-      
-      // if(viewerRef){
-      //   console.log("At least we have viewer ref")
-      //     if(viewerRef.current){
-      //       console.log("Its in viewerref current!")
-      //     }
-      // }
 
       if(viewerRef){
         if(viewerRef.current){
@@ -756,6 +700,28 @@ const EntireStage = observer(
         console.log("Viewer ref is not filled")
       }
     
+    const handleOnClick = (e) => {
+      const evt = e.evt || e;
+      const { offsetX: x, offsetY: y } = evt;
+      item.event("click", evt, x, y);
+    };
+
+    const handleMouseDown = (e) => {
+      // Copy the logic from ImageView's handleMouseDown
+      const { offsetX: x, offsetY: y } = e.evt;
+      item.event("mousedown", e, x, y);
+    };
+
+    const handleMouseMove = (e) => {
+      const { offsetX: x, offsetY: y } = e.evt;
+      item.event("mousemove", e, x, y);
+    };
+
+    const handleMouseUp = (e) => {
+      const { offsetX: x, offsetY: y } = e.evt;
+      item.event("mouseup", e, x, y);
+    };
+
     return (
         <div 
           id="origin offset"
@@ -777,6 +743,10 @@ const EntireStage = observer(
           offsetX={item.stageTranslate.x}
           offsetY={item.stageTranslate.y}
           rotation={item.rotation}
+          onClick={handleOnClick}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
         >
           <StageContent item={item} store={store} state={state} crosshairRef={crosshairRef} />
         </Stage>
