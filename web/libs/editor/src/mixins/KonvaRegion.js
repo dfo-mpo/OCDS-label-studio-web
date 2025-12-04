@@ -57,11 +57,18 @@ export const KonvaRegionMixin = types
         const stage = self.parent?.stageRef;
         if (!stage) return;
     
+        
+        //this bug showed up after making no changes,
+        //how did it work before?
+        //style was scoped to be defined only in that function
+        //well it means it wasnt being used before?
+        
+        let style;
         if (typeof stage.container === "function") {
-          const style = stage.container().style;
+          style = stage.container().style;
         }
         else{
-          const style = stage.container.style; 
+          style = stage.container.style; 
         }
         
 

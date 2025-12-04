@@ -187,7 +187,10 @@ const DrawingTool = types
       },
 
       canStartDrawing() {
-        return !self.isIncorrectControl() && !self.isIncorrectLabel() && self.canStart() && !self.annotation.isDrawing;
+        var incorrect_control = self.isIncorrectControl()
+        var incorrect_label = self.isIncorrectLabel()
+        var can_start = self.canStart()
+        return !incorrect_control && !incorrect_label && can_start && !self.annotation.isDrawing;
       },
 
       startDrawing(x, y) {
@@ -280,14 +283,18 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
         Super.finishDrawing(x, y);
         currentMode = DEFAULT_MODE;
         modeAfterMouseMove = DEFAULT_MODE;
+        console.log("Draw tool stop drawing")
       },
 
       mousedownEv(ev, [x, y]) {
-        if (!self.canStartDrawing()) return;
-        if (!self.isAllowedInteraction(ev)) return;
+        var canStartDrawing = self.canStartDrawing()
+        var allowed_interaction = self.isAllowedInteraction(ev)
+        if (!canStartDrawing) return;
+        if (!allowed_interaction) return;
         startPoint = { x, y };
         if (currentMode === DEFAULT_MODE) {
           modeAfterMouseMove = DRAG_MODE;
+          console.log("Draw tool start drawing (mouse down)")
         }
       },
 
@@ -316,6 +323,7 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
         if (!self.isDrawing) return;
         self.draw(x, y);
         self.finishDrawing(x, y);
+        console.log("Draw tool stop drawing (mouse up)")
       },
 
       clickEv(ev, [x, y]) {
@@ -327,6 +335,7 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
         if (currentMode === DEFAULT_MODE) {
           modeAfterMouseMove = TWO_CLICKS_MODE;
         } else if (self.isDrawing && currentMode === TWO_CLICKS_MODE) {
+          console.log("Draw tool double click draw")
           self.draw(x, y);
           self.finishDrawing(x, y);
           currentMode = DEFAULT_MODE;

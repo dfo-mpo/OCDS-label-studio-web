@@ -12,6 +12,9 @@ import { KonvaRegionMixin } from "../mixins/KonvaRegion";
 import NormalizationMixin from "../mixins/Normalization";
 import RegionsMixin from "../mixins/Regions";
 import { ImageModel } from "../tags/object/Image";
+
+import { HugeImageModel } from "../tags/object";
+
 import { rotateBboxCoords } from "../utils/bboxCoords";
 import { FF_DEV_3793, isFF } from "../utils/feature-flags";
 import { createDragBoundFunc } from "../utils/image";
@@ -143,7 +146,7 @@ const Model = types
     id: types.optional(types.identifier, guidGenerator),
     pid: types.optional(types.string, guidGenerator),
     type: "rectangleregion",
-    object: types.late(() => types.reference(ImageModel)),
+    object: types.late(() => types.reference(types.union(ImageModel, HugeImageModel))),
 
     x: types.number,
     y: types.number,

@@ -53,10 +53,17 @@ NGINX_PID_FILE="$NGINX_LOG_DIR/nginx.pid"
 
 UWSGI_PORT=8000
 NGINX_PORT=8080
+FRONT_PORT=8010
 
 # Export environment variables needed by Django/Label Studio
 export DJANGO_SETTINGS_MODULE=core.settings.label_studio
 export LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+export FRONTEND_HMR=false
+export FRONTEND_HOSTNAME=""
+export LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/data/
+
+# if FRONTEND_HOSTNAME is defined it automatically looks for it there instead of static
+# and if HMR is true then it refreshes or looks for changes? its not enable and arg if enabled, its enable HMR and override frontend path
 
 set -e  # Exit on any error
 
@@ -99,14 +106,26 @@ stop_services() {
 
     # Force kill any processes still using the ports
     if check_port $UWSGI_PORT; then
-        print_warning "Force killing process on port $UWSGI_PORT"
+        print_warning "Force killing process on uwsgi port $UWSGI_PORT"
         lsof -ti:$UWSGI_PORT | xargs kill -9 2>/dev/null || true
+    else
+        echo "uwsgi port $UWSGI_PORT is free"
     fi
 
     if check_port $NGINX_PORT; then
-        print_warning "Force killing process on port $NGINX_PORT"
+        print_warning "Force killing process on nginx port $NGINX_PORT"
         lsof -ti:$NGINX_PORT | xargs kill -9 2>/dev/null || true
+    else
+        echo "nginx port $NGINX_PORT is free"
     fi
+
+    if check_port $FRONT_PORT; then
+        print_warning "Force killing process on frontdev port $FRONT_PORT"
+        lsof -ti:$FRONT_PORT | xargs kill -9 2>/dev/null || true
+    else
+        echo "frontdev port $FRONT_PORT is free"
+    fi
+
 }
 
 # Start uwsgi server
@@ -283,7 +302,12 @@ case "${1:-start}" in
         print_success "Label Studio is now running!"
         ;;
     front-dev)
+    
         print_status "Starting frontend development server..."
+        stop_services
+
+        export FRONTEND_HMR=true
+        export FRONTEND_HOSTNAME=""
 
         cd "$REPO_ROOT/web" || { print_error "web directory not found: $REPO_ROOT/web"; exit 1; }
         yarn dev &
@@ -296,14 +320,35 @@ case "${1:-start}" in
         # Go back to repo root and start backend normally
         cd "$REPO_ROOT" || { print_error "Failed to cd back to repo root"; exit 1; }
         # Start backend services normally
-        "$0" start
-
         echo
-        print_warning "Please connect to localhost:8010 via local port forwarding to access the frontend-dev server"
+        echo
+        print_status "Please connect to localhost:$FRONT_PORT via local port forwarding to access the frontend-dev server"
+        print_status "Please connect to localhost:$FRONT_PORT via local port forwarding to access the frontend-dev server"
+        print_status "Please connect to localhost:$FRONT_PORT via local port forwarding to access the frontend-dev server"
+        print_status "Please connect to localhost:$FRONT_PORT via local port forwarding to access the frontend-dev server"
+        print_status "Webpack will have to build first before you can connect"
+        echo
+        echo
+
+        print_status "Starting Label Studio services..."
+        generate_nginx_conf
+        start_uwsgi
+        start_nginx        
+        check_health
+        
+        if curl -s http://127.0.0.1:$FRONT_PORT/ >/dev/null 2>&1; then
+          print_success "Yarn server is working"
+        else
+            print_error "Yarn server is not responding"
+        fi
+
+        print_success "Label Studio is now running!"
+
         ;;
     stop)
         print_status "Stopping Label Studio services..."
         stop_services
+        
         print_success "Label Studio services stopped"
         ;;
     restart)
@@ -319,6 +364,24 @@ case "${1:-start}" in
         show_status
         print_success "Label Studio restarted successfully!"
         ;;
+    build)
+        # Build frontend
+        cd "$REPO_ROOT/web" || { print_error "Frontend directory not found: $REPO_ROOT/web"; exit 1; }
+        
+        print_status "Installing frontend dependencies..."
+        yarn install --frozen-lockfile
+        
+        print_status "Building frontend assets..."
+        yarn run build
+        
+        # Collect static files with Django
+        cd "$LABEL_STUDIO_DIR" || { print_error "Label Studio directory not found: $LABEL_STUDIO_DIR"; exit 1; }
+        
+        print_status "Collecting static files with Django..."
+        poetry run python manage.py collectstatic --no-input --clear
+        
+        print_success "Frontend build and static collection completed"
+    ;;
     status)
         show_status
         ;;

@@ -884,8 +884,9 @@ const Model = types
         });
       }
     },
-
+    
     setZoomPosition(x, y) {
+      //console.log("Set zoom position")
       const [width, height] = isFF(FF_DEV_3377)
         ? [self.canvasSize.width, self.canvasSize.height]
         : [self.containerWidth, self.containerHeight];

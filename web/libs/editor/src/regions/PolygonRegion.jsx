@@ -8,6 +8,9 @@ import NormalizationMixin from "../mixins/Normalization";
 import RegionsMixin from "../mixins/Regions";
 import Registry from "../core/Registry";
 import { ImageModel } from "../tags/object/Image";
+//OCDS
+import { HugeImageModel } from "../tags/object";
+
 import { LabelOnPolygon } from "../components/ImageView/LabelOnRegion";
 import { PolygonPoint, PolygonPointView } from "./PolygonPoint";
 import { green } from "@ant-design/colors";
@@ -55,7 +58,7 @@ const Model = types
     id: types.optional(types.identifier, guidGenerator),
     pid: types.optional(types.string, guidGenerator),
     type: "polygonregion",
-    object: types.late(() => types.reference(ImageModel)),
+    object: types.late(() => types.reference(types.union(ImageModel, HugeImageModel))),
 
     points: types.array(types.union(PolygonPoint, types.array(types.number)), []),
     closed: true,

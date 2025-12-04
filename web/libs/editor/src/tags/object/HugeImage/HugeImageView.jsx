@@ -14,7 +14,19 @@ import { Component, createRef, forwardRef, Fragment, memo, useEffect, useRef, us
 import { observer, useObserver } from "mobx-react";
 import { getEnv, getRoot, isAlive } from "mobx-state-tree";
 import OpenSeadragon from "openseadragon";
+import { Group, Layer, Line, Rect, Stage } from "react-konva";
+import ImageGrid from "../../../components/ImageGrid/ImageGrid";
 
+import {
+  FF_DEV_1442,
+  FF_DEV_3077,
+  FF_DEV_3793,
+  FF_LSDV_4583_6,
+  FF_LSDV_4711,
+  FF_LSDV_4930,
+  FF_ZOOM_OPTIM,
+  isFF,
+} from "../../../utils/feature-flags";
 
 const splitRegions = (regions) => {
   const brushRegions = [];
@@ -30,39 +42,22 @@ const Region = memo(({ region, showSelected = false }) => {
   return useObserver(() => Tree.renderItem(region, region.annotation, true));
 });
 
-const RegionsOverlay = memo(({ regions, name, showSelected = false, suggestion = false }) => {
-  const content = regions.map((el) => (
-    <Region key={`region-${el.id}`} region={el} showSelected={showSelected} />
-  ));
+const RegionsLayer = memo(({ regions, name, useLayers, showSelected = false }) => {
+  const content = regions.map((el) => <Region key={`region-${el.id}`} region={el} showSelected={showSelected} />);
 
-  // Inline fallback for missing styles.regionsLayer and styles[name]
-  const style = {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    pointerEvents: "none",
-    width: "100%",
-    height: "100%",
-    // Add any background or zIndex if needed here
-  };
-
-  return (
-    <div data-suggestion={suggestion} style={style}>
-      {content}
-    </div>
-  );
+  return useLayers === false ? content : <Layer name={name}>{content}</Layer>;
 });
 
-const Regions = memo(({ regions, chunkSize = 15, suggestion = false, showSelected = false }) => {
+const Regions = memo(({ regions, useLayers = true, chunkSize = 15, suggestion = false, showSelected = false }) => {
   return (
     <ImageViewProvider value={{ suggestion }}>
       {(chunkSize ? chunks(regions, chunkSize) : regions).map((chunk, i) => (
-        <RegionsOverlay
+        <RegionsLayer
           key={`chunk-${i}`}
           name={`chunk-${i}`}
           regions={chunk}
+          useLayers={useLayers}
           showSelected={showSelected}
-          suggestion={suggestion}
         />
       ))}
     </ImageViewProvider>
@@ -207,12 +202,15 @@ const GridOverlay = observer(({ item }) => {
         `,
         backgroundSize: `${item.gridsize}px ${item.gridsize}px`,
         pointerEvents: "none",
-        zIndex: 998,
+        zIndex: 1001,
       }}
     />
   );
 });
-
+/*
+ * Component that creates an overlay on top
+ * of the image to support Magic Wand tool
+ */
 const CanvasOverlay = observer(({ item }) => {
   return (
     <canvas
@@ -224,7 +222,7 @@ const CanvasOverlay = observer(({ item }) => {
         width: "100%",
         height: "100%",
         pointerEvents: "none",
-        zIndex: 997,
+        zIndex: 1002,
         ...item.imageTransform,
       }}
     />
@@ -255,22 +253,22 @@ export default observer(
         id: containerId,
         prefixUrl: "https://openseadragon.github.io/openseadragon/images/",
         tileSources: "http://20.220.26.156:8080/dzi/3/SABLE_ISLAND.dzi",//item.currentSrc?
-        showNavigator: true,//add this to config
+        showNavigator: false,//TODO: add this to config
         showZoomControl: false,
         showHomeControl: false,
         showFullPageControl: false,
         showRotationControl: item.rotatecontrol,
-        maxZoomPixelRatio: Infinity,
-        minZoomLevel: item.negativezoom ? 0.1 : 1,
-        zoomPerClick: 0,
-        zoomPerScroll: item.zoomBy,
+        maxZoomPixelRatio: 5,
+        minZoomLevel: 0.5,//item.negativezoom ? 0.1 : 1,
+        zoomPerClick: 1.5,
+        zoomPerScroll: 1.5,
         crossOriginPolicy: item.imageCrossOrigin,
         animationTime: 0.5,
         blendTime: 0.1,
-        constrainDuringPan: true,
+        constrainDuringPan: false,
         wrapHorizontal: false,
         wrapVertical: false,
-        visibilityRatio: 1,
+        visibilityRatio: 0.5,
         gestureSettingsMouse: {//disable built-in mouse controls
           clickToZoom: false,
           dblClickToZoom: false,
@@ -279,7 +277,6 @@ export default observer(
           scrollToZoom: false,
         },
       });
-
 
       // ---- Shim Konva-like API ----
       viewer.getAbsoluteTransform = function () {
@@ -323,6 +320,7 @@ export default observer(
       });
 
       viewer.addHandler("pan", (event) => {
+        //console.log("Pan button")
         if (item.setZoomPosition) {
           const center = event.center;
           const viewport = viewer.viewport;
@@ -333,64 +331,97 @@ export default observer(
         }
       });
 
+
       const handleMouseEvent = (eventType) => (event) => {
-        if (item.getSkipInteractions && item.getSkipInteractions()) return;
+        const webPoint = event.position; // Mouse position in viewer container (includes black bars)
+        const viewportPoint = viewer.viewport.pointFromPixel(webPoint); // 0-1 coordinates
+        const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint); // Pixel coordinates on image
+        
+        const imageTopLeft = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0));
+        const imageBottomRight = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(1, 1));
 
-        const webPoint = event.position;
-        const viewportPoint = viewer.viewport.pointFromPixel(webPoint);
-        const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint);
-
-        const x = imagePoint.x;
-        const y = imagePoint.y;
-
-        item.event(eventType, event.originalEvent, x, y);
+        const width = imageBottomRight.x - imageTopLeft.x 
+        const height = imageBottomRight.y- imageTopLeft.y 
+        
+        // Adjust coordinates to account for margins (black bars)
+        const x = webPoint.x - imageTopLeft.x
+        const y = webPoint.y - imageTopLeft.y;
+        
+        console.log("webPoint: ", webPoint
+        ,"\imageTopLeft: ", imageTopLeft
+        ,"\nimageBottomRight: ", imageBottomRight
+        ,"\nAdjusted x, y:", x, y);
+        
+        // Only trigger event if click is within the inner container (not on black bars)
+        if (x >= 0 && x <= width && y >= 0 && y <= height) {
+          item.event(eventType, event.originalEvent, x, y);
+          //console.log("Click inside image bounds, ignoring");
+        } else {
+          console.log("Click outside image bounds, ignoring");
+        }
       };
+      
+
+      // const handleMouseEvent = (eventType) => (event) => {
+      //   //if (item.getSkipInteractions && item.getSkipInteractions()) return;
+
+      //   console.log("Mouse event: ", event)
+        
+      //   const webPoint = event.position;
+      //   const viewportPoint = viewer.viewport.pointFromPixel(webPoint);
+      //   const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint);
+        
+      //   // var width  = 1.0 / viewer.viewport.getZoom(current);
+      //   // var height = viewer.viewportwidth / viewer.viewport.getAspectRatio();
+
+
+      //   console.log("webPoint: ", webPoint)
+      //   console.log("viewportPoint: ", viewportPoint)
+      //   console.log("imagePoint: ", imagePoint)
+        
+      //   const x = webPoint.x
+      //   const y = webPoint.y;
+
+      //   //the events offset is out of bounds, so it cancels drawing on the image
+      //   //at         if (!self.isAllowedInteraction(ev)) return;
+      //   //in drawingtool.js
+      //   //either adjust our position to match the canvas size
+      //   //or adjust the canvas size variable to understand the image is larger now
+      //   //but that might require adjusting other assumptions about canvas size
+      //   //so maybe just adjust our offset, and maybe the annotations thing
+      //   //they're in 0-1 so thats the same for canvas as for image
+
+      //   //webpoint is the openseadragon component in top left origin, in pixels
+      //   //viewportpoint is 0-1 the image
+      //   //imagePoint is pixels the image
+      //   //theres black bars on the image because its a different aspect ratio than the component itself
+      //   //those will have negative or >> height values for imagePoint and viewPoint
+      //   //but webpoint is including those bars as well so its fine (its the whole component)
+      //   //annotations should be placed with viewportPoint
+      //   //the internal canvasSize is maybe acting weird
+      //   //can we find a maxImageSize variable or a canvasSizeVariable?
+
+        
+      //   item.event(eventType, event.originalEvent, x, y);
+      // };
+
+      //the tools have no dragEv
+      //and seadragon has no canvas-move ev
+      //though perhaps theres one internal if we look harder
+      //but there is canvas-drag
 
       viewer.addHandler("canvas-click", handleMouseEvent("click"));
-      //viewer.addHandler("canvas-drag", handleMouseEvent("drag"));
+      viewer.addHandler("canvas-drag", handleMouseEvent("mousemove"));
       viewer.addHandler("canvas-press", handleMouseEvent("mousedown"));
       viewer.addHandler("canvas-release", handleMouseEvent("mouseup"));
+      //viewer.addHandler("canvas-move", handleMouseEvent("mousemove"));
+      viewer.addHandler("canva-scroll", handleMouseEvent("scroll"));
+      viewer.addHandler("canvas-double-click", handleMouseEvent("dblclick"));
 
-
-      viewer.addHandler("canvas-drag", (event) => {
-        const activeTool = item.manager.activeTool
-
-        if (activeTool?.toolName === "Pan") {
-          const deltaPoint = viewer.viewport.deltaPointsFromPixels(event.delta);
-          viewer.viewport.panBy(deltaPoint);
-          viewer.viewport.applyConstraints();
-        }
-      });
-
-
-      viewer.addHandler("canvas-move", (event) => {
-        if (item.getSkipInteractions && item.getSkipInteractions()) return;
-
-        const webPoint = event.position;
-        const viewportPoint = viewer.viewport.pointFromPixel(webPoint);
-        const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint);
-
-        if (this.crosshairRef.current) {
-          this.crosshairRef.current.updatePointer(webPoint.x, webPoint.y);
-        }
-
-        if (item.setPointerPosition) {
-          item.setPointerPosition({ x: imagePoint.x, y: imagePoint.y });
-        }
-
-        item.event("mousemove", event.originalEvent, imagePoint.x, imagePoint.y);
-      });
-
-      viewer.addHandler("canvas-enter", () => {
-        if (this.crosshairRef.current) {
-          this.crosshairRef.current.updateVisibility(true);
-        }
-      });
-
-      viewer.addHandler("canvas-exit", () => {
-        if (this.crosshairRef.current) {
-          this.crosshairRef.current.updateVisibility(false);
-        }
+      viewer.addHandler('update-viewport', () => {
+        // Sync Konva stage transform to match OSD viewport
+        item.seadragon_zoom = viewer.viewport.getZoom();
+        item.seadragon_pan = viewer.viewport.getCenter();
       });
 
       if (item.setStageRef) item.setStageRef(viewer);
@@ -426,11 +457,6 @@ export default observer(
       }
     };
 
-    getAbsoluteTransform() {
-      print("Get absolute transform from sea dragon")
-      return this.imageTransform.getAbsoluteTransform()
-    }
-
     componentDidMount() {
       const { item } = this.props;
 
@@ -442,6 +468,8 @@ export default observer(
       }
     }
 
+
+    
     componentWillUnmount() {
       this.detachObserver();
       window.removeEventListener("resize", this.onResize);
@@ -468,6 +496,7 @@ export default observer(
       const { item, store } = this.props;
       if (store.annotationStore.viewingAll) return null;
       const tools = item.getToolsManager().allTools();
+      //console.log("Adding tools: ", tools);
       return <Toolbar tools={tools} />;
     }
 
@@ -476,9 +505,17 @@ export default observer(
       if (!isAlive(item)) return null;
       if (!store.task || !item.currentSrc) return null;
 
+
+      
       const wrapperClasses = [
         styles.wrapperComponent,
         item.images.length > 1 ? styles.withGallery : styles.wrapper,
+      ];
+
+      const imagePositionClassnames = [
+        styles.image_position,
+        styles[`image_position__${item.verticalalignment === "center" ? "middle" : item.verticalalignment}`],
+        styles[`image_position__${item.horizontalalignment}`],
       ];
 
       const containerStyle = {
@@ -513,39 +550,34 @@ export default observer(
                 width: "100%",
                 height: "100%",
                 filter: filters,
+                zIndex:900
               }}
-            />
-
-            {/* Overlays */}
-            {item.imageIsLoaded && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  pointerEvents: "none",
-                  zIndex: 1000,
-                }}
               >
-                <GridOverlay item={item} />
-                <CanvasOverlay item={item} />
-                <RegionsContent item={item} />
-                <Selection item={item} />
-                <DrawingRegion item={item} />
-                {item.crosshair && (
-                  <Crosshair
-                    ref={this.crosshairRef}
-                    width={item.containerWidth || item.stageWidth}
-                    height={item.containerHeight || item.stageHeight}
-                  />
+                {}
+                {/*add code for if not loaded show loading thing instead*/}
+              {<EntireStage
+                item={item}
+                everything = {this}
+                viewerRef={this.viewerRef}
+                crosshairRef={this.crosshairRef}
+                onClick={this.handleOnClick}
+                imagePositionClassnames={imagePositionClassnames}
+                state={this.state}
+              />}
+
+              <Selection item={item} />
+              <DrawingRegion item={item} />
+              {item.crosshair && (
+                <Crosshair
+                  ref={this.crosshairRef}
+                  width={item.containerWidth || item.stageWidth}
+                  height={item.containerHeight || item.stageHeight}
+                />
                 )}
-              </div>
-            )}
+            </div>
 
             {/* Toolbar pinned to top-right */}
-            {item.hasTools && item.imageIsLoaded && (
+            {item.hasTools && (
               <div
                 style={{
                   position: "absolute",
@@ -591,9 +623,11 @@ export default observer(
     }
 
     handleZoom(val) {
-      if (this.viewerRef.current) {
-        const vp = this.viewerRef.current.viewport;
-        vp.zoomTo(vp.getZoom() + val * 0.2); // Adjust step size as needed
+      if(this.viewerRef){
+        if (this.viewerRef.current) {
+          const vp = this.viewerRef.current.viewport;
+          vp.zoomTo(vp.getZoom() + val * 0.2); // Adjust step size as needed
+        }
       }
     }
 
@@ -614,11 +648,233 @@ export default observer(
 );
 
 const RegionsContent = observer(({ item }) => {
-  if (!isAlive(item)) return null;
-  if (!item.currentSrc) return null;
+  console.log("Item:", item); // print all at once
+  return (
+    <svg id="RegionsContent" width="100%" height="100%">
+      {item.regs.map((item, index) => (
+        <rect
+          key={index}
+          x={item.x}
+          y={item.y}
+          width={item.width}
+          height={item.height}
+          fill={item.color || "transparent"}
+          stroke="black"
+        />
+      ))}
+    </svg>
+  );
+});
 
+const EntireStage = observer(
+  ({
+    item,
+    everything,
+    viewerRef,
+    imagePositionClassnames,
+    state,
+    crosshairRef,
+  }) => {
+    const { store } = item;
+    let size;
+    let position;
+
+    // if (!item.viewerRef || !item.viewerRef.current) {
+    //   return null
+    // }
+
+    if (isFF(FF_ZOOM_OPTIM)) {
+      size = {
+        width: item.containerWidth,
+        height: item.containerHeight,
+      };
+      position = {
+        x: item.zoomingPositionX + item.alignmentOffset.x,
+        y: item.zoomingPositionY + item.alignmentOffset.y,
+      };
+    } else {
+      size = { ...item.canvasSize };
+      position = {
+        x: item.zoomingPositionX,
+        y: item.zoomingPositionY,
+      };
+    }
+
+    let offset_style = {
+      position: "absolute",
+      top: "0px",
+      left: "0px",
+      width: "100%",
+      height: "100%",
+      //overflow: "hidden"
+      pointerEvents: "auto",//let clicks pass through
+    };
+
+    // It takes one or two render calls, but eventually viewerRef.current does get assigned a value
+    
+      // if(item.viewerRef){
+      //   console.log("Viewer ref IS filled!")
+      // }
+      
+      // if(everything.viewerRef.current){
+      //   console.log("its in everything at least")
+      // }
+      
+      
+      // if(viewerRef){
+      //   console.log("At least we have viewer ref")
+      //     if(viewerRef.current){
+      //       console.log("Its in viewerref current!")
+      //     }
+      // }
+
+      if(viewerRef){
+        if(viewerRef.current){
+
+          let seadragon = viewerRef.current.viewport
+
+          const image_offset_tl = seadragon.pixelFromPoint(new OpenSeadragon.Point(0, 0));
+          const image_offset_br = seadragon.pixelFromPoint(new OpenSeadragon.Point(1, 1));
+          
+          // In pixels
+          const stage_width = image_offset_br.x - image_offset_tl.x;
+          const stage_height = image_offset_br.y - image_offset_tl.y;
+          
+          offset_style = {
+            position: "absolute",
+            top: `${image_offset_tl.y}px`,
+            left: `${image_offset_tl.x}px`,
+            width: `${stage_width}px`,
+            height: `${stage_height}px`,
+            zIndex: 1002,  
+            pointerEvents: "auto",//let clicks pass through
+          //overflow: "hidden"
+          } 
+        }
+      }
+      else{
+        console.log("Viewer ref is not filled")
+      }
+    
+    return (
+        <div 
+          id="origin offset"
+          style={offset_style}
+        >
+        <GridOverlay item={item} />
+        <CanvasOverlay item={item} />
+        <Stage
+          ref={(ref) => {
+            item.setStageRef(ref);
+          }}
+          className={[styles["image-element"], ...imagePositionClassnames].join(" ")}
+          width={size.width}
+          height={size.height}
+          scaleX={item.zoomScale}
+          scaleY={item.zoomScale}
+          x={position.x}
+          y={position.y}
+          offsetX={item.stageTranslate.x}
+          offsetY={item.stageTranslate.y}
+          rotation={item.rotation}
+        >
+          <StageContent item={item} store={store} state={state} crosshairRef={crosshairRef} />
+        </Stage>
+      </div>
+    );
+  },
+);
+
+const TRANSFORMER_BACK_ID = "transformer_back";
+
+const TransformerBack = observer(({ item }) => {
+  const { selectedRegionsBBox } = item;
+  const singleNodeMode = item.selectedRegions.length === 1;
+  const dragStartPointRef = useRef({ x: 0, y: 0 });
+
+  return (
+    <Layer>
+      {selectedRegionsBBox && !singleNodeMode && (
+        <Rect
+          id={TRANSFORMER_BACK_ID}
+          fill="rgba(0,0,0,0)"
+          draggable
+          onClick={() => {
+            item.annotation.unselectAreas();
+          }}
+          onMouseOver={(ev) => {
+            if (!item.annotation.isLinkingMode) {
+              //ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
+
+              if (typeof ev.target.getStage().container() === "function") {
+                ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
+              }
+              else{
+                ev.target.getStage().container.style.cursor = Constants.POINTER_CURSOR;
+              }
+            }
+          }}
+          onMouseOut={(ev) => {
+            ev.target.getStage().container().style.cursor = Constants.DEFAULT_CURSOR;
+          }}
+          onDragStart={(e) => {
+            dragStartPointRef.current = {
+              x: item.canvasToInternalX(e.target.getAttr("x")),
+              y: item.canvasToInternalY(e.target.getAttr("y")),
+            };
+          }}
+          dragBoundFunc={(pos) => {
+            let { x, y } = pos;
+            const { top, left, right, bottom } = item.selectedRegionsBBox;
+            const { stageHeight, stageWidth } = item;
+
+            const offset = {
+              x: dragStartPointRef.current.x - left,
+              y: dragStartPointRef.current.y - top,
+            };
+
+            x -= offset.x;
+            y -= offset.y;
+
+            const bbox = { x, y, width: right - left, height: bottom - top };
+
+            const fixed = fixRectToFit(bbox, stageWidth, stageHeight);
+
+            if (fixed.width !== bbox.width) {
+              x += (fixed.width - bbox.width) * (fixed.x !== bbox.x ? -1 : 1);
+            }
+
+            if (fixed.height !== bbox.height) {
+              y += (fixed.height - bbox.height) * (fixed.y !== bbox.y ? -1 : 1);
+            }
+
+            x += offset.x;
+            y += offset.y;
+            return { x, y };
+          }}
+        />
+      )}
+    </Layer>
+  );
+});
+
+const StageContent = observer(({ item, store, state, crosshairRef }) => {
+  if (!isAlive(item)) {
+    console.log("Not alive?")
+    return null;
+  }
+  if (!store.task || !item.currentSrc) {
+    console.log("No task or no source")
+    return null;
+  }
   const regions = item.regs;
+  const paginationEnabled = !!item.isMultiItem;
+  const wrapperClasses = [styles.wrapperComponent, item.images.length > 1 ? styles.withGallery : styles.wrapper];
+
+  if (paginationEnabled) wrapperClasses.push(styles.withPagination);
+
   const { brushRegions, shapeRegions } = splitRegions(regions);
+
   const { brushRegions: suggestedBrushRegions, shapeRegions: suggestedShapeRegions } = splitRegions(item.suggestions);
 
   const renderableRegions = Object.entries({
@@ -628,16 +884,50 @@ const RegionsContent = observer(({ item }) => {
     suggestedShape: suggestedShapeRegions,
   });
 
+  // const imageTopLeft = item.viewerRef.current.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0));
+  // const imageBottomRight = item.viewerRef.current.viewport.pixelFromPoint(new OpenSeadragon.Point(1, 1));
+
+  // const width = imageBottomRight.x - imageTopLeft.x 
+  // const height = imageBottomRight.y- imageTopLeft.y 
+
   return (
     <>
+      {/* Hack to keep stage in place when there's no regions */}
+      {regions.length === 0 && (
+        <Layer>
+          <Line points={[0, 0, 0, 1]} stroke="rgba(0,0,0,0)" />
+        </Layer>
+      )}
+
+      {/*DEBUG: disabled transformer back*/}
+      {isFF(FF_LSDV_4930) ? <TransformerBack item={item} /> : null}
+
       {renderableRegions.map(([groupName, list]) => {
+        const isBrush = groupName.match(/brush/i) !== null;
         const isSuggestion = groupName.match("suggested") !== null;
+
         return list.length > 0 ? (
-          <Regions key={groupName} regions={list} suggestion={isSuggestion} />
+          <Regions
+            key={groupName}
+            name={groupName}
+            regions={list}
+            useLayers={isBrush === false}
+            suggestion={isSuggestion}
+          />
         ) : (
           <Fragment key={groupName} />
         );
       })}
+      <Selection item={item} isPanning={state.isPanning} />
+      <DrawingRegion item={item} />
+
+      {item.crosshair && (
+        <Crosshair
+          ref={crosshairRef}
+          width={isFF(FF_ZOOM_OPTIM) ? item.containerWidth : item.stageWidth}
+          height={isFF(FF_ZOOM_OPTIM) ? item.containerHeight : item.stageHeight}
+        />
+      )}
     </>
   );
 });
