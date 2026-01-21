@@ -4,7 +4,7 @@ import Tree from "../../../core/Tree";
 import styles from "../../../components/ImageView/Image.scss";
 import { errorBuilder } from "../../../core/DataValidator/ConfigValidator";
 import { chunks } from "../../../utils/utilities";
-import { LoadingOutlined } from "@ant-design/icons";
+import { LoadingOutlined, TranslationOutlined } from "@ant-design/icons";
 import { Toolbar } from "../../../components/Toolbar/Toolbar";
 import { ImageViewProvider } from "../../../components/ImageView/ImageViewContext";
 import ResizeObserver from "../../../utils/resize-observer";
@@ -13,9 +13,12 @@ import Constants from "../../../core/Constants";
 import { Component, createRef, forwardRef, Fragment, memo, useEffect, useRef, useState } from "react";
 import { observer, useObserver } from "mobx-react";
 import { getEnv, getRoot, isAlive } from "mobx-state-tree";
+import { reaction } from "mobx";
 import OpenSeadragon from "openseadragon";
 import { Group, Layer, Line, Rect, Stage } from "react-konva";
 import ImageGrid from "../../../components/ImageGrid/ImageGrid";
+import ImageTransformer from "../../../components/ImageTransformer/ImageTransformer.jsx";
+//web/libs/editor/src/components/ImageTransformer/ImageTransformer.jsx
 
 import {
   FF_DEV_1442,
@@ -48,7 +51,7 @@ const RegionsLayer = memo(({ regions, name, useLayers, showSelected = false }) =
   return useLayers === false ? content : <Layer name={name}>{content}</Layer>;
 });
 
-const Regions = memo(({ regions, useLayers = true, chunkSize = 15, suggestion = false, showSelected = false }) => {
+const Regions = memo(({ regions, useLayers = true, chunkSize = 50000, suggestion = false, showSelected = false }) => {
   return (
     <ImageViewProvider value={{ suggestion }}>
       {(chunkSize ? chunks(regions, chunkSize) : regions).map((chunk, i) => (
@@ -88,39 +91,168 @@ const DrawingRegion = observer(({ item }) => {
 });
 
 const SELECTION_COLOR = "#40A9FF";
+const SELECTION_SECOND_COLOR = "white";
+const SELECTION_DASH = [3, 3];
 
+/**
+ * Selection area during selection — dashed rect
+ */
 const SelectionRect = observer(({ item }) => {
-  const { selectionArea } = item;
-  if (!selectionArea || !selectionArea.start || !selectionArea.end) return null;
+  if(!item.onCanvasRect){
+    console.log("Borken")
+  }
+  const { x, y, width, height } = item.onCanvasRect;
 
-  const { start, end } = selectionArea;
-  const left = Math.min(start.x, end.x);
-  const top = Math.min(start.y, end.y);
-  const width = Math.abs(end.x - start.x);
-  const height = Math.abs(end.y - start.y);
+  const positionProps = {
+    x,
+    y,
+    width,
+    height,
+    listening: false,
+    strokeWidth: 1,
+  };
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        left: `${left}px`,
-        top: `${top}px`,
-        width: `${width}px`,
-        height: `${height}px`,
-        border: `2px dashed ${SELECTION_COLOR}`,
-        background: "rgba(64, 169, 255, 0.1)",
-        pointerEvents: "none",
-        zIndex: 1001,
-      }}
-    />
+    <>
+      <Rect {...positionProps} stroke={SELECTION_COLOR} dash={SELECTION_DASH} strokeScaleEnabled={false} />
+      <Rect
+        {...positionProps}
+        stroke={SELECTION_SECOND_COLOR}
+        dash={SELECTION_DASH}
+        dashOffset={SELECTION_DASH[0]}
+        strokeScaleEnabled={false}
+      />
+    </>
+  );
+});
+
+/**
+ * Multiple selected regions when transform is unavailable — just a box with anchors
+ */
+const SelectionBorders = observer(({ item, selectionArea }) => {
+  const { selectionBorders: bbox } = selectionArea;
+
+  if (!isFF(FF_DEV_3793)) {
+    bbox.left = bbox.left * item.stageScale;
+    bbox.right = bbox.right * item.stageScale;
+    bbox.top = bbox.top * item.stageScale;
+    bbox.bottom = bbox.bottom * item.stageScale;
+  }
+
+  const points = bbox
+    ? [
+        { x: bbox.left, y: bbox.top },
+        { x: bbox.right, y: bbox.top },
+        { x: bbox.left, y: bbox.bottom },
+        { x: bbox.right, y: bbox.bottom },
+      ]
+    : [];
+  const ANCHOR_SIZE = isFF(FF_DEV_3793) ? 6 / item.stageScale : 6;
+
+  return (
+    <>
+      {bbox && (
+        <Rect
+          name="regions_selection"
+          x={bbox.left}
+          y={bbox.top}
+          width={bbox.right - bbox.left}
+          height={bbox.bottom - bbox.top}
+          stroke={SELECTION_COLOR}
+          strokeWidth={1}
+          strokeScaleEnabled={false}
+          listening={false}
+        />
+      )}
+      {points.map((point, idx) => {
+        return (
+          <Rect
+            key={idx}
+            x={point.x - ANCHOR_SIZE / 2}
+            y={point.y - ANCHOR_SIZE / 2}
+            width={ANCHOR_SIZE}
+            height={ANCHOR_SIZE}
+            fill={SELECTION_COLOR}
+            stroke={SELECTION_SECOND_COLOR}
+            strokeWidth={2}
+            strokeScaleEnabled={false}
+            listening={false}
+          />
+        );
+      })}
+    </>
+  );
+});
+
+const SelectionLayer = observer(({ item, selectionArea }) => {
+  const scale = isFF(FF_DEV_3793) ? 1 : 1 / (item.zoomScale || 1);
+  const [isMouseWheelClick, setIsMouseWheelClick] = useState(false);
+  const [shift, setShift] = useState(false);
+  const isPanTool = item.getToolsManager().findSelectedTool()?.fullName === "ZoomPanTool";
+
+  const dragHandler = (e) => setIsMouseWheelClick(e.buttons === 4);
+  const handleKey = (e) => setShift(e.shiftKey);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKey);
+    window.addEventListener("keyup", handleKey);
+    window.addEventListener("mousedown", dragHandler);
+    window.addEventListener("mouseup", dragHandler);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      window.removeEventListener("keyup", handleKey);
+      window.removeEventListener("mousedown", dragHandler);
+      window.removeEventListener("mouseup", dragHandler);
+    };
+  }, []);
+
+  const disableTransform = item.zoomScale > 1 && (shift || isPanTool || isMouseWheelClick);
+
+  let supportsTransform = true;
+  let supportsRotate = true;
+  let supportsScale = true;
+
+  item.selectedRegions?.forEach((shape) => {
+    supportsTransform = supportsTransform && shape.supportsTransform === true;
+    supportsRotate = supportsRotate && shape.canRotate === true;
+    supportsScale = supportsScale && true;
+  });
+
+  supportsTransform =
+    supportsTransform &&
+    (item.selectedRegions.length > 1 ||
+      ((item.useTransformer || item.selectedShape?.preferTransformer) && item.selectedShape?.useTransformer));
+
+  return (
+    <Layer scaleX={scale} scaleY={scale} >
+      {selectionArea.isActive ? (
+        <SelectionRect item={selectionArea} />
+      ) : !supportsTransform && item.selectedRegions.length > 1 ? (
+        <SelectionBorders item={item} selectionArea={selectionArea} />
+      ) : null}
+      <ImageTransformer
+        item={item}
+        rotateEnabled={supportsRotate}
+        supportsTransform={!disableTransform && supportsTransform}
+        supportsScale={supportsScale}
+        selectedShapes={item.selectedRegions}
+        singleNodeMode={item.selectedRegions.length === 1}
+        useSingleNodeRotation={item.selectedRegions.length === 1 && supportsRotate}
+        draggableBackgroundSelector={`#${TRANSFORMER_BACK_ID}`}
+      />
+      </Layer>
   );
 });
 
 const Selection = observer(({ item }) => {
+  const { selectionArea } = item;
+
   return (
     <>
-      <SelectionRect item={item} />
-      {/* other selection components can be added here */}
+      <Layer name="selection-regions-layer" />
+      {/*
+        <SelectionLayer item={item} selectionArea={selectionArea} />
+        */}
     </>
   );
 });
@@ -189,7 +321,7 @@ const GridOverlay = observer(({ item }) => {
   if (!item.grid || !item.sizeUpdated) return null;
 
   return (
-    <div
+    <div id="grid-overlay"
       style={{
         position: "absolute",
         top: 0,
@@ -241,6 +373,7 @@ export default observer(
       pointer: [0, 0],
     };
 
+
     initializeOpenSeadragon = () => {
       const { item } = this.props;
       const containerId = `openseadragon-${item.name}`;
@@ -251,15 +384,15 @@ export default observer(
 
       const viewer = OpenSeadragon({
         id: containerId,
-        prefixUrl: "https://openseadragon.github.io/openseadragon/images/",
+        prefixUrl: "https://openseadragon.github.io/openseadragon/images/",//icons i think
         tileSources: "http://20.220.26.156:8080/dzi/3/SABLE_ISLAND.dzi",//item.currentSrc?
-        showNavigator: false,//TODO: add this to config
-        showZoomControl: false,
+        showNavigator: true,//TODO: add this to config
+        showZoomControl: true,
         showHomeControl: false,
         showFullPageControl: false,
         showRotationControl: item.rotatecontrol,
         maxZoomPixelRatio: 5,
-        minZoomLevel: 0.5,//item.negativezoom ? 0.1 : 1,
+        minZoomLevel: 0.0,//item.negativezoom ? 0.1 : 1,
         zoomPerClick: 1.5,
         zoomPerScroll: 1.5,
         crossOriginPolicy: item.imageCrossOrigin,
@@ -277,7 +410,18 @@ export default observer(
           scrollToZoom: false,
         },
       });
+      
+      //seadragon tools now work over the stage! :D
 
+      if (viewer.controls) {
+        for (let i = 0; i < viewer.controls.length; i++) {
+          viewer.controls[i].element.style.zIndex = '1003';
+          viewer.controls[i].container.style.zIndex = '1003';
+          viewer.controls[i].wrapper.style.zIndex = '1003';
+
+        }
+      }
+      
       // ---- Shim Konva-like API ----
       viewer.getAbsoluteTransform = function () {
         return {
@@ -289,6 +433,8 @@ export default observer(
           }
         };
       };
+
+      
 
       this.viewerRef.current = viewer;
 
@@ -320,7 +466,6 @@ export default observer(
       });
 
       viewer.addHandler("pan", (event) => {
-        //console.log("Pan button")
         if (item.setZoomPosition) {
           const center = event.center;
           const viewport = viewer.viewport;
@@ -330,58 +475,6 @@ export default observer(
           item.setZoomPosition(-viewportPoint.x + containerSize.x / 2, -viewportPoint.y + containerSize.y / 2);
         }
       });
-
-
-      // const handleMouseEvent = (eventType) => (event) => {
-      //   const webPoint = event.position; // Mouse position in viewer container (includes black bars)
-      //   const viewportPoint = viewer.viewport.pointFromPixel(webPoint); // 0-1 coordinates
-      //   const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint); // Pixel coordinates on image
-        
-      //   const imageTopLeft = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0));
-      //   const imageBottomRight = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(1, 1));
-
-      //   const width = imageBottomRight.x - imageTopLeft.x 
-      //   const height = imageBottomRight.y- imageTopLeft.y 
-        
-      //   // Adjust coordinates to account for margins (black bars)
-      //   const x = webPoint.x - imageTopLeft.x
-      //   const y = webPoint.y - imageTopLeft.y;
-        
-      //   console.log("webPoint: ", webPoint
-      //   ,"\imageTopLeft: ", imageTopLeft
-      //   ,"\nimageBottomRight: ", imageBottomRight
-      //   ,"\nAdjusted x, y:", x, y);
-        
-      //   // Only trigger event if click is within the inner container (not on black bars)
-      //   if (x >= 0 && x <= width && y >= 0 && y <= height) {
-      //     item.event(eventType, event.originalEvent, x, y);
-      //     //console.log("Click inside image bounds, ignoring");
-      //   } else {
-      //     console.log("Click outside image bounds, ignoring");
-      //   }
-      // };
-      
-      //the tools have no dragEv
-      //and seadragon has no canvas-move ev
-      //though perhaps theres one internal if we look harder
-      //but there is canvas-drag
-
-      // viewer.addHandler("canvas-click", handleMouseEvent("click"));
-      // viewer.addHandler("canvas-drag", handleMouseEvent("mousemove"));
-      // viewer.addHandler("canvas-press", handleMouseEvent("mousedown"));
-      // viewer.addHandler("canvas-release", handleMouseEvent("mouseup"));
-      // //viewer.addHandler("canvas-move", handleMouseEvent("mousemove"));
-      // viewer.addHandler("canva-scroll", handleMouseEvent("scroll"));
-      // viewer.addHandler("canvas-double-click", handleMouseEvent("dblclick"));
-
-      // viewer.addHandler('update-viewport', () => {
-      //   console.log("Called container placeholder")
-      //   // Sync Konva stage transform to match OSD viewport
-      //   item.seadragon_zoom = viewer.viewport.getZoom();
-      //   item.seadragon_pan = viewer.viewport.getCenter();
-      // });
-
-      if (item.setStageRef) item.setStageRef(viewer);
     };
 
     onResize = debounce(() => {
@@ -423,10 +516,40 @@ export default observer(
       if (item.currentSrc || item.parsedValue) {
         this.initializeOpenSeadragon();
       }
-    }
 
+      // // Set up reaction to listen for zoom changes
+      // this.disposeReaction = reaction(
+      //   () => ({
+      //     currentZoom: item.currentZoom,
+      //     stageZoom: item.stageZoom,
+      //     zoomScale: item.zoomScale,
+      //     stageX: item.zoomingPositionX,
+      //     stageY: item.zoomingPositionY
+      //   }),
+      //   ({ currentZoom, stageZoom, zoomScale, stageX, stageY }) => {
+      //     if (this.viewerRef.current) {
 
-    
+      //       const viewport = this.viewerRef.current.viewport;
+      //       item.setZoomLimits({
+      //         minZoom: viewport.getMinZoom(),
+      //         maxZoom: viewport.getMaxZoom(),
+      //         homeZoom: viewport.getHomeZoom(),
+      //       });
+
+      //       const homeZoom = viewport.getHomeZoom();
+
+      //       //console.log("StageX, StageY: ", stageX, stageY)
+      //       console.log("stageZoom: ",stageZoom, "CurrentZoom: ",currentZoom, "Zoomscale: ",zoomScale)
+
+      //       const zoomPoint = viewport.pointFromPixel(new OpenSeadragon.Point(stageX,stageY));
+      //       //console.log("zoomPoint: ",zoomPoint)
+
+      //       viewport.zoomTo(zoomScale, zoomPoint, true);
+      //     }
+      //  }
+      //)
+    }//end did mount
+
     componentWillUnmount() {
       this.detachObserver();
       window.removeEventListener("resize", this.onResize);
@@ -434,6 +557,10 @@ export default observer(
       if (this.viewerRef.current) {
         this.viewerRef.current.destroy();
         this.viewerRef.current = null;
+      }
+
+      if (this.disposeReaction) {
+        this.disposeReaction();
       }
     }
 
@@ -462,8 +589,6 @@ export default observer(
       if (!isAlive(item)) return null;
       if (!store.task || !item.currentSrc) return null;
 
-
-      
       const wrapperClasses = [
         styles.wrapperComponent,
         item.images.length > 1 ? styles.withGallery : styles.wrapper,
@@ -574,259 +699,310 @@ export default observer(
       return document.getElementById(`openseadragon-${this.props.item.name}`);
     }
 
+
+
+
     setCursor(cursor) {
       console.log("Called cursor placeholder")
       const container = this.container();
       if (container) container.style.cursor = cursor;
     }
 
-    handleZoom(val) {
-      console.log("Called handle zoom")
-      if(this.viewerRef){
-        if (this.viewerRef.current) {
-          const vp = this.viewerRef.current.viewport;
-          vp.zoomTo(vp.getZoom() + val * 0.2); // Adjust step size as needed
-        }
-      }
-    }
+    //i think this has to go in the model
 
-    sizeToFit() {
-      console.log("Called size to fit")
-      if (this.viewerRef.current) {
-        this.viewerRef.current.viewport.goHome();
-      }
-    }
+    // handleZoom(val) {
+    //   console.log("Called seadragon handle zoom")
+    //   if(this.viewerRef){
+    //     if (this.viewerRef.current) {
+    //       const vp = this.viewerRef.current.viewport;
+    //       vp.zoomTo(vp.getZoom() + val * 0.2); // Adjust step size as needed
+    //     }
+    //   }
 
+    // sizeToFit() {
+    //   console.log("Called size to fit")
+    //   if (this.viewerRef.current) {
+    //     this.viewerRef.current.viewport.goHome();
+    //   }
+    // }
 
-    sizeToOriginal() {
-      console.log("Called size to original")
-      if (this.viewerRef.current) {
-        this.viewerRef.current.viewport.zoomTo(1);
-      }
-    }
-
+    // sizeToOriginal() {
+    //   console.log("Called size to original")
+    //   if (this.viewerRef.current) {
+    //     this.viewerRef.current.viewport.zoomTo(1);
+    //   }
+    //}
   }
 );
 
-const RegionsContent = observer(({ item }) => {
-  console.log("Item:", item); // print all at once
-  return (
-    <svg id="RegionsContent" width="100%" height="100%">
-      {item.regs.map((item, index) => (
-        <rect
-          key={index}
-          x={item.x}
-          y={item.y}
-          width={item.width}
-          height={item.height}
-          fill={item.color || "transparent"}
-          stroke="black"
-        />
-      ))}
-    </svg>
-  );
-});
+export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames, state, crosshairRef }) => {
+  const { store } = item;
+  
+  let size, position;
+  if (item.isFF && item.isFF('FF_ZOOM_OPTIM')) {
+    size = { width: item.containerWidth, height: item.containerHeight };
+    position = { x: item.zoomingPositionX + item.alignmentOffset.x, y: item.zoomingPositionY + item.alignmentOffset.y };
+  } else {
+    size = { ...item.canvasSize };
+    position = { x: item.zoomingPositionX, y: item.zoomingPositionY };
+  }
+    
+  let dragonDefined = (viewerRef != null && viewerRef.current != null)
+  let listenerAdded = useRef(false)
+  let originOffsetRef = useRef(null)
+  let overlayAddedRef = useRef(false)
+  let overlayRef = useRef(null)
+  let stageRef = useRef(null)
 
-const EntireStage = observer(
-  ({
-    item,
-    viewerRef,
-    imagePositionClassnames,
-    state,
-    crosshairRef,
-  }) => {
-    const { store } = item;
-    let size;
-    let position;
+  
+  if(viewerRef?.current){
+    if(!overlayRef.current){
+    
+      overlayRef.current = document.createElement('div');
+      let testOverlay = overlayRef.current
+      testOverlay.id = 'overlay-container';
+      testOverlay.style.background = 'red';
+      testOverlay.style.opacity = '0.5';
+      
+      // Move origin-offset content into overlay
+      //originOffsetRef.current.parentNode.replaceChild(testOverlay, originOffsetRef.current);
+      testOverlay.appendChild(originOffsetRef.current);
 
-    // if (!item.viewerRef || !item.viewerRef.current) {
-    //   return null
-    // }
+      viewerRef.current.addOverlay({
+        element: testOverlay,
+        location: new OpenSeadragon.Rect(0, 0, 1, 1),
+      });
 
-    if (isFF(FF_ZOOM_OPTIM)) {
-      size = {
-        width: item.containerWidth,
-        height: item.containerHeight,
-      };
-      position = {
-        x: item.zoomingPositionX + item.alignmentOffset.x,
-        y: item.zoomingPositionY + item.alignmentOffset.y,
-      };
-    } else {
-      size = { ...item.canvasSize };
-      position = {
-        x: item.zoomingPositionX,
-        y: item.zoomingPositionY,
-      };
+      // console.log("Added Overlay")
+    }
+  }
+  
+  // if (dragonDefined) {
+  //   const viewport = viewerRef.current.viewport;
+  //   const topLeft = viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0));
+  //   const bottomRight = viewport.pixelFromPoint(new OpenSeadragon.Point(1, 1));
+  //   stage_width = bottomRight.x - topLeft.x;
+  //   stage_height = bottomRight.y - topLeft.y;
+
+  // }
+
+  console.log("Entire Stage, dragonDefined: ",dragonDefined)
+
+  const handleEvent = (type) => (e) => {
+    const { offsetX: x, offsetY: y } = e.evt || e;
+    item.event(type, e, x, y);
+  };
+
+  let stage_width = 25
+  let stage_height = 25
+  // if(overlayRef?.current){
+  //   const el = overlayRef.current;
+
+  //   const bounding_rect = overlayRef.current.getBoundingClientRect()
+  //   stage_width = parseFloat(el.style.width);
+  //   stage_height = parseFloat(el.style.height);``
+  //   console.log("Stage width: ",stage_width, " Stage height: ", stage_height, "Rect: ",bounding_rect)
+  // }
+
+  if(dragonDefined){
+    console.log("look here")
+    //const tileSource = viewerRef.current.world.getItemAt(0).getContentSize();
+    const tileSource = viewerRef.current.world.getItemAt(0).getContentSize();
+    console.log("tileSource: ",tileSource)
+    stage_width = 500
+    stage_height = 500
+  }
+
+  //useEffect(() => {
+    
+    function updateStageSize() {
+      if ((!stageRef.current || !originOffsetRef.current || !viewerRef.current)) return
+
+      const window_point = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(1.0,1.0))
+      const window_start = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(0.0,0.0))
+
+      const viewport_width = window_start.x-window_point.x
+      const viewport_height = window_start.y-window_point.y
+
+      const offsetDiv = originOffsetRef.current;
+      const stageWidth = offsetDiv.clientWidth;
+      const stageHeight = offsetDiv.clientHeight;
+      
+      //const stageWidth = viewport_width
+      //const stageHeight = viewport_height
+
+      stageRef.current.width(stageWidth);
+      stageRef.current.height(stageHeight);
+      const point = { x: 100, y: 100 }; // Stage point we want to reach bottom-right
+
+      const scaleX = stageWidth / point.x;
+      const scaleY = stageHeight / point.y; 
+      
+      //so we cant just draw teh stage to be the entire size of teh image, that will crash it
+      //so instead we draw it to cover the rendered image
+      //so thats like 800x800 ish
+      //then we will need to scale it, so that things drawn at like 100 is at the far part of teh image
+
+      stageRef.current.scale({ x: scaleX, y: scaleY });
+      stageRef.current.position({ x: 0, y: 0 }); // top-left corner as origin
+      stageRef.current.batchDraw();
+
+      console.log("stageWidth: ",stageWidth, " stageHeight: ",stageHeight, " ScaleX: ",scaleX," ScaleY: ",scaleY)
+      console.log("Window start: ",window_start, ", (1,1): ",window_point)
+      console.log("Window width: ",viewport_width, ", height: ",viewport_height)
     }
 
-    let offset_style = {
-      position: "absolute",
-      top: "0px",
-      left: "0px",
-      width: "100%",
-      height: "100%",
-      //overflow: "hidden"
-      pointerEvents: "auto",//let clicks pass through
-    };
+    // initial size
+    updateStageSize();
 
-    // It takes one or two render calls, but eventually viewerRef.current does get assigned a value
+    // resize listener
+    if(!listenerAdded.current && viewerRef.current){
+      viewerRef.current.addHandler("animation", updateStageSize);
+      viewerRef.current.addHandler("animation-finish", updateStageSize);
 
-      if(viewerRef){
-        if(viewerRef.current){
+      listenerAdded.current = true
+      //window.addEventListener("resize", updateStageSize);
+      console.log("Added event listener for resizing")
+    }
 
-          let seadragon = viewerRef.current.viewport
-
-          const image_offset_tl = seadragon.pixelFromPoint(new OpenSeadragon.Point(0, 0));
-          const image_offset_br = seadragon.pixelFromPoint(new OpenSeadragon.Point(1, 1));
-          
-          // In pixels
-          const stage_width = image_offset_br.x - image_offset_tl.x;
-          const stage_height = image_offset_br.y - image_offset_tl.y;
-          
-          offset_style = {
-            position: "absolute",
-            top: `${image_offset_tl.y}px`,
-            left: `${image_offset_tl.x}px`,
-            width: `${stage_width}px`,
-            height: `${stage_height}px`,
-            zIndex: 1002,  
-            pointerEvents: "auto",//let clicks pass through
-          //overflow: "hidden"
-          } 
-        }
-      }
-      else{
-        console.log("Viewer ref is not filled")
-      }
-    
-    const handleOnClick = (e) => {
-      const evt = e.evt || e;
-      const { offsetX: x, offsetY: y } = evt;
-      item.event("click", evt, x, y);
-    };
-
-    const handleMouseDown = (e) => {
-      // Copy the logic from ImageView's handleMouseDown
-      const { offsetX: x, offsetY: y } = e.evt;
-      item.event("mousedown", e, x, y);
-    };
-
-    const handleMouseMove = (e) => {
-      const { offsetX: x, offsetY: y } = e.evt;
-      item.event("mousemove", e, x, y);
-    };
-
-    const handleMouseUp = (e) => {
-      const { offsetX: x, offsetY: y } = e.evt;
-      item.event("mouseup", e, x, y);
-    };
-
-    return (
-        <div 
-          id="origin offset"
-          style={offset_style}
-        >
-        <GridOverlay item={item} />
-        <CanvasOverlay item={item} />
-        <Stage
-          ref={(ref) => {
-            item.setStageRef(ref);
-          }}
-          className={[styles["image-element"], ...imagePositionClassnames].join(" ")}
-          width={size.width}
-          height={size.height}
-          scaleX={item.zoomScale}
-          scaleY={item.zoomScale}
-          x={position.x}
-          y={position.y}
-          offsetX={item.stageTranslate.x}
-          offsetY={item.stageTranslate.y}
-          rotation={item.rotation}
-          onClick={handleOnClick}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-        >
-          <StageContent item={item} store={store} state={state} crosshairRef={crosshairRef} />
-        </Stage>
-      </div>
-    );
-  },
-);
-
-const TRANSFORMER_BACK_ID = "transformer_back";
-
-const TransformerBack = observer(({ item }) => {
-  const { selectedRegionsBBox } = item;
-  const singleNodeMode = item.selectedRegions.length === 1;
-  const dragStartPointRef = useRef({ x: 0, y: 0 });
+    // cleanup
+  //   return () => {
+  //     // if(listenerAdded.current){
+  //     //   viewerRef.current.removeHandler("zoom", updateStageSize);
+  //     // }
+  //   }
+  // }, [stageRef, originOffsetRef, viewerRef]);
 
   return (
-    <Layer>
-      {selectedRegionsBBox && !singleNodeMode && (
-        <Rect
-          id={TRANSFORMER_BACK_ID}
-          fill="rgba(0,0,0,0)"
-          draggable
-          onClick={() => {
-            item.annotation.unselectAreas();
-          }}
-          onMouseOver={(ev) => {
-            if (!item.annotation.isLinkingMode) {
-              //ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
+    <div id="origin-offset" ref={originOffsetRef} style={{
+    zIndex: 1002,
+    pointerEvents: 'auto',
+    width:"100%",
+    height:"100%"
+  }}>
 
-              if (typeof ev.target.getStage().container() === "function") {
-                ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
-              }
-              else{
-                ev.target.getStage().container.style.cursor = Constants.POINTER_CURSOR;
-              }
-            }
-          }}
-          onMouseOut={(ev) => {
-            ev.target.getStage().container().style.cursor = Constants.DEFAULT_CURSOR;
-          }}
-          onDragStart={(e) => {
-            dragStartPointRef.current = {
-              x: item.canvasToInternalX(e.target.getAttr("x")),
-              y: item.canvasToInternalY(e.target.getAttr("y")),
-            };
-          }}
-          dragBoundFunc={(pos) => {
-            let { x, y } = pos;
-            const { top, left, right, bottom } = item.selectedRegionsBBox;
-            const { stageHeight, stageWidth } = item;
+      <GridOverlay item={item} />
+      
+      {originOffsetRef?.current && <>
+      <div style={{ position: "absolute", left: 0, top: 0, width: "5%", height: "5%", backgroundColor: "purple" }} />
+      <div style={{ position: "absolute", left: "95%", top: 0, width: "5%", height: "5%", backgroundColor: "green" }} />
+      <div style={{ position: "absolute", left: 0, top: "95%", width: "5%", height: "5%", backgroundColor: "blue" }} />
+      <div style={{ position: "absolute", left: "95%", top: "95%", width: "5%", height: "5%", backgroundColor: "yellow" }} />
+      </>}
 
-            const offset = {
-              x: dragStartPointRef.current.x - left,
-              y: dragStartPointRef.current.y - top,
-            };
+      {/* <CanvasOverlay item={item} /> */}
 
-            x -= offset.x;
-            y -= offset.y;
 
-            const bbox = { x, y, width: right - left, height: bottom - top };
+      {originOffsetRef?.current && 
+      <Stage ref={stageRef} width={100} height={100}>
+        <Layer>
+          <Rect x={45} y={45} width={10} height={10} fill="black" />
+          <Rect x={95} y={95} width={5} height={5} fill="white" />
+        </Layer>
+      </Stage>}
+      {/*
+      */}
 
-            const fixed = fixRectToFit(bbox, stageWidth, stageHeight);
+      {/*
+      <Stage
+        ref={(ref) => {
+          stageRef.current = ref;     
+          item.setStageRef(ref);
+        }}
+        className={[item.styles?.['image-element'], ...imagePositionClassnames].join(' ')}
+        width={stage_width}
+        height={stage_height}
+        // x={0}
+        // y={0}
+        // scaleX={1}
+        // scaleY={1}
+        onClick={handleEvent('click')}
+        onMouseDown={handleEvent('mousedown')}
+        onMouseMove={handleEvent('mousemove')}
+        onMouseUp={handleEvent('mouseup')}
+        >
 
-            if (fixed.width !== bbox.width) {
-              x += (fixed.width - bbox.width) * (fixed.x !== bbox.x ? -1 : 1);
-            }
-
-            if (fixed.height !== bbox.height) {
-              y += (fixed.height - bbox.height) * (fixed.y !== bbox.y ? -1 : 1);
-            }
-
-            x += offset.x;
-            y += offset.y;
-            return { x, y };
-          }}
-        />
-      )}
-    </Layer>
+        <StageContent item={item} store={store} state={state} crosshairRef={crosshairRef} />
+        
+      </Stage>
+      */}
+    </div>
   );
 });
+
+
+// const TRANSFORMER_BACK_ID = "transformer_back";
+
+// const TransformerBack = observer(({ item }) => {
+//   const { selectedRegionsBBox } = item;
+//   const singleNodeMode = item.selectedRegions.length === 1;
+//   const dragStartPointRef = useRef({ x: 0, y: 0 });
+
+//   return (
+//     <Layer>
+//       {selectedRegionsBBox && !singleNodeMode && (
+//         <Rect
+//           id={TRANSFORMER_BACK_ID}
+//           fill="rgba(0,0,0,0)"
+//           draggable
+//           onClick={() => {
+//             item.annotation.unselectAreas();
+//           }}
+//           onMouseOver={(ev) => {
+//             if (!item.annotation.isLinkingMode) {
+//               //ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
+
+//               if (typeof ev.target.getStage().container() === "function") {
+//                 ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
+//               }
+//               else{
+//                 ev.target.getStage().container.style.cursor = Constants.POINTER_CURSOR;
+//               }
+//             }
+//           }}
+//           onMouseOut={(ev) => {
+//             ev.target.getStage().container().style.cursor = Constants.DEFAULT_CURSOR;
+//           }}
+//           onDragStart={(e) => {
+//             dragStartPointRef.current = {
+//               x: item.canvasToInternalX(e.target.getAttr("x")),
+//               y: item.canvasToInternalY(e.target.getAttr("y")),
+//             };
+//           }}
+//           dragBoundFunc={(pos) => {
+//             let { x, y } = pos;
+//             const { top, left, right, bottom } = item.selectedRegionsBBox;
+//             const { stageHeight, stageWidth } = item;
+
+//             const offset = {
+//               x: dragStartPointRef.current.x - left,
+//               y: dragStartPointRef.current.y - top,
+//             };
+
+//             x -= offset.x;
+//             y -= offset.y;
+
+//             const bbox = { x, y, width: right - left, height: bottom - top };
+
+//             const fixed = fixRectToFit(bbox, stageWidth, stageHeight);
+
+//             if (fixed.width !== bbox.width) {
+//               x += (fixed.width - bbox.width) * (fixed.x !== bbox.x ? -1 : 1);
+//             }
+
+//             if (fixed.height !== bbox.height) {
+//               y += (fixed.height - bbox.height) * (fixed.y !== bbox.y ? -1 : 1);
+//             }
+
+//             x += offset.x;
+//             y += offset.y;
+//             return { x, y };
+//           }}
+//         />
+//       )}
+//     </Layer>
+//   );
+// });
 
 const StageContent = observer(({ item, store, state, crosshairRef }) => {
   if (!isAlive(item)) {
@@ -869,8 +1045,9 @@ const StageContent = observer(({ item, store, state, crosshairRef }) => {
         </Layer>
       )}
 
-      {/*DEBUG: disabled transformer back*/}
+      {/*
       {isFF(FF_LSDV_4930) ? <TransformerBack item={item} /> : null}
+      */}
 
       {renderableRegions.map(([groupName, list]) => {
         const isBrush = groupName.match(/brush/i) !== null;
@@ -881,23 +1058,26 @@ const StageContent = observer(({ item, store, state, crosshairRef }) => {
             key={groupName}
             name={groupName}
             regions={list}
-            useLayers={isBrush === false}
+            useLayers={true}
             suggestion={isSuggestion}
           />
         ) : (
           <Fragment key={groupName} />
         );
-      })}
+        })
+      }
+      {/*
+      */}
       <Selection item={item} isPanning={state.isPanning} />
       <DrawingRegion item={item} />
 
-      {item.crosshair && (
+       {item.crosshair && (
         <Crosshair
           ref={crosshairRef}
           width={isFF(FF_ZOOM_OPTIM) ? item.containerWidth : item.stageWidth}
           height={isFF(FF_ZOOM_OPTIM) ? item.containerHeight : item.stageHeight}
         />
-      )}
+        )}
     </>
   );
 });
