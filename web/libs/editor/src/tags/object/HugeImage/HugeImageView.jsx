@@ -383,6 +383,7 @@ export default observer(
         this.viewerRef.current.destroy();
       }
 
+      
       const viewer = OpenSeadragon({
         id: containerId,
         prefixUrl: "https://openseadragon.github.io/openseadragon/images/",//icons i think
@@ -747,36 +748,38 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
     size = { ...item.canvasSize };
     position = { x: item.zoomingPositionX, y: item.zoomingPositionY };
   }
-    
+  
   let dragonDefined = (viewerRef != null && viewerRef.current != null)
   let listenerAdded = useRef(false)
   let originOffsetRef = useRef(null)
   let overlayAddedRef = useRef(false)
   let overlayRef = useRef(null)
   let stageRef = useRef(null)
-
+  let visibleOffsetRef = useRef(null)
   
-  if(viewerRef?.current){
-    if(!overlayRef.current){
+  useEffect(() => {
+    if(viewerRef.current && originOffsetRef.current){
+      if(!overlayRef.current){
     
-      overlayRef.current = document.createElement('div');
+        overlayRef.current = document.createElement('div');
       let testOverlay = overlayRef.current
       testOverlay.id = 'overlay-container';
-      testOverlay.style.background = 'red';
-      testOverlay.style.opacity = '0.5';
+      //testOverlay.style.background = 'red';
+      //testOverlay.style.opacity = '0.5';
       
       // Move origin-offset content into overlay
       //originOffsetRef.current.parentNode.replaceChild(testOverlay, originOffsetRef.current);
       testOverlay.appendChild(originOffsetRef.current);
-
+      
       viewerRef.current.addOverlay({
         element: testOverlay,
         location: new OpenSeadragon.Rect(0, 0, 1, 1),
       });
-
+      
       // console.log("Added Overlay")
-    }
-  }
+        }
+      }
+  },[viewerRef.current, originOffsetRef.current])
   
   // if (dragonDefined) {
   //   const viewport = viewerRef.current.viewport;
@@ -794,8 +797,8 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
     item.event(type, e, x, y);
   };
 
-  let stage_width = 25
-  let stage_height = 25
+  // let stage_width = 25
+  // let stage_height = 25
   // if(overlayRef?.current){
   //   const el = overlayRef.current;
 
@@ -805,96 +808,112 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   //   console.log("Stage width: ",stage_width, " Stage height: ", stage_height, "Rect: ",bounding_rect)
   // }
 
-  if(dragonDefined){
-    console.log("look here")
-    //const tileSource = viewerRef.current.world.getItemAt(0).getContentSize();
-    const tileSource = viewerRef.current.world.getItemAt(0).getContentSize();
-    console.log("tileSource: ",tileSource)
-    stage_width = 500
-    stage_height = 500
-  }
+  // if(dragonDefined){
+  //   console.log("look here")
+  //   //const tileSource = viewerRef.current.world.getItemAt(0).getContentSize();
+  //   const tileSource = viewerRef.current.world.getItemAt(0).getContentSize();
+  //   console.log("tileSource: ",tileSource)
+  //   stage_width = 500
+  //   stage_height = 500
+  // }
 
-  //useEffect(() => {
-    
-    function updateStageSize() {
-      if ((!stageRef.current || !originOffsetRef.current || !viewerRef.current)) return
-
-      //this is exactly the same as offsetDiv.clientWidth 
-      // const window_point = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(1.0,1.0))
-      // const window_start = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(0.0,0.0))
-      // const viewport_width = window_point.x-window_start.x
-      // const viewport_height = window_point.y-window_start.y
+      function updateStageSize() {
+        if ((!stageRef.current || !originOffsetRef.current || !viewerRef.current || !visibleOffsetRef.current)) return
 
 
-      //ai summary
-      // The goal here is to position and scale the Konva stage so it matches the visible portion of the OpenSeadragon image. 
-      // `tlWindow` gives the top-left pixel coordinates of the visible viewport, which we use as the offset for the stage container. 
-      // `bound_width_window` and `bound_height_window` are the pixel dimensions of the visible image portion, which we apply to the container size. 
-      // The stage itself is then scaled so that drawing coordinates map correctly to the visible image. 
-      // This avoids rendering the entire image at full resolution, which could crash the stage, while ensuring overlays stay aligned with the viewer.
+        // const rect = viewerRef.current.container.getBoundingClientRect()
+        // const element_width = rect.width
+        // const element_height = rect.height
 
-      const viewport_end = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(1.0,1.0))
-      const viewport_start = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(0.0,0.0))
-      const rect = viewerRef.current.container.getBoundingClientRect()
+        const viewport_end = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(1.0,1.0))
+        const viewport_start = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(0.0,0.0))
 
-      const visible_bounds = viewerRef.current.viewport.getBounds(true)//(viewport reference frame)
+        const viewport_width = viewport_end.x-viewport_start.x
+        const viewport_height = viewport_end.y-viewport_start.y
 
-      const tlBound = visible_bounds.getTopLeft()
-      const brBound = visible_bounds.getBottomRight()
+        const visible_bounds = viewerRef.current.viewport.getBounds(true)//(viewport reference frame)
 
-      brBound.x = _.clamp(brBound.x,0.0,1.0)
-      brBound.y = _.clamp(brBound.y,0.0,1.0)
-      tlBound.x = _.clamp(tlBound.x,0.0,1.0)
-      tlBound.y = _.clamp(tlBound.y,0.0,1.0)
+        const offset_rect = originOffsetRef.current.getBoundingClientRect()
+        const offset_pos = { x: offset_rect.left, y: offset_rect.top };
 
-      const tlWindow = viewerRef.current.viewport.viewportToWindowCoordinates(tlBound)
-      const brWindow = viewerRef.current.viewport.viewportToWindowCoordinates(brBound)
+        const tlBound = visible_bounds.getTopLeft()
+        const brBound = visible_bounds.getBottomRight()
 
-      const tl_image = viewerRef.current.viewport.viewportToImageCoordinates(tlBound)
+        brBound.x = _.clamp(brBound.x,0.0,1.0)
+        brBound.y = _.clamp(brBound.y,0.0,1.0)
+        tlBound.x = _.clamp(tlBound.x,0.0,1.0)
+        tlBound.y = _.clamp(tlBound.y,0.0,1.0)
 
-      const bound_width_window = brWindow.x-tlWindow.x
-      const bound_height_window = brWindow.y-tlWindow.y
+        const tlWindow = viewerRef.current.viewport.viewportToWindowCoordinates(tlBound)
+        const brWindow = viewerRef.current.viewport.viewportToWindowCoordinates(brBound)
 
-      const element_width = rect.width
-      const element_height = rect.height
+        //const tl_image = viewerRef.current.viewport.viewportToImageCoordinates(tlBound)
+
+        const bound_width_window = brWindow.x-tlWindow.x
+        const bound_height_window = brWindow.y-tlWindow.y
+        // const viewport_width = window_point.x-window_start.x
+        // const viewport_height = window_point.y-window_start.y
+
+        // const offsetDiv = originOffsetRef.current;
+        // const stageWidth = offsetDiv.clientWidth;
+        // const stageHeight = offsetDiv.clientHeight;
         
-      // const viewport_width = window_point.x-window_start.x
-      // const viewport_height = window_point.y-window_start.y
+        const stageWidth = bound_width_window
+        const stageHeight = bound_height_window
 
-      const offsetDiv = originOffsetRef.current;
-      const stageWidth = offsetDiv.clientWidth;
-      const stageHeight = offsetDiv.clientHeight;
-      
-      //const stageWidth = viewport_width
-      //const stageHeight = viewport_height
+        //const stageWidth = viewport_width
+        //const stageHeight = viewport_height
 
-      stageRef.current.width(stageWidth);
-      stageRef.current.height(stageHeight);
-      const point = { x: 100, y: 100 }; // Stage point we want to reach bottom-right
+        stageRef.current.width(stageWidth);
+        stageRef.current.height(stageHeight);
+        const stage_content_internal_resolution = { x: 400, y: 400 }; // Stage point we want to reach bottom-right
 
-      const scaleX = stageWidth / point.x;
-      const scaleY = stageHeight / point.y; 
-      
-      //so we cant just draw teh stage to be the entire size of teh image, that will crash it
-      //so instead we draw it to cover the rendered image
-      //so thats like 800x800 ish
-      //then we will need to scale it, so that things drawn at like 100 is at the far part of teh image
+        const scaleX = viewport_width  / stage_content_internal_resolution.x;
+        const scaleY = viewport_height / stage_content_internal_resolution.y; 
+        
+        //so we cant just draw teh stage to be the entire size of teh image, that will crash it
+        //so instead we draw it to cover the rendered image
+        //so thats like 800x800 ish
+        //then we will need to scale it, so that things drawn at like 100 is at the far part of teh image
 
-      stageRef.current.scale({ x: scaleX, y: scaleY });
-      stageRef.current.position({ x: 0, y: 0 }); // top-left corner as origin
-      stageRef.current.batchDraw();
+        console.log("tlWindowX: ",tlWindow.x, "left offset: ",stageRef.current.left)
 
-      console.log("stageWidth: ",stageWidth, " stageHeight: ",stageHeight, " ScaleX: ",scaleX," ScaleY: ",scaleY)
-      console.log("OSD rect: ",rect,"OSD visible bounds: ",visible_bounds)
-      console.log("visible bounds width: ",bound_width_window, ", height: ",bound_height_window)
-      console.log("OSD TL window: ",tlWindow)
-      // console.log("Window start: ",window_start, ", (1,1): ",window_point)
-      // console.log("Window width: ",viewport_width, ", height: ",viewport_height)
-    }
+        const container = visibleOffsetRef.current//stageRef.current.container();
+        container.style.position = 'absolute'; // or relative, depending on layout
+        container.style.left = `${tlWindow.x-offset_pos.x}px`;
+        container.style.top  = `${tlWindow.y-offset_pos.y}px`;
+
+        //container.id = "stage-container"
+
+        console.log("Stage container id: ",container.id)
+
+        console.log("DEBUG CONSTANT SCALE")
+
+        stageRef.current.scale({ x: scaleX, y: scaleY });
+        stageRef.current.position({ x: -scaleX* stage_content_internal_resolution.x*tlBound.x, y: -scaleY*stage_content_internal_resolution.y*tlBound.y }); // top-left corner as origin
+        stageRef.current.batchDraw();
+
+        console.log("stageWidth: ",stageWidth, " stageHeight: ",stageHeight, " ScaleX: ",scaleX," ScaleY: ",scaleY)
+        
+        console.log("tlbound: ",tlBound.x, tlBound.y, tlBound)
+
+        console.log("offset_pos: ",offset_pos.x,", ",offset_pos.y)
+
+        console.log("Viewport height: ",viewport_height)
+
+
+        //console.log("OSD rect: ",rect,"OSD visible bounds: ",visible_bounds)
+        //console.log("visible bounds width: ",bound_width_window, ", height: ",bound_height_window)
+        //console.log("OSD TL window: ",tlWindow)
+        // console.log("Window start: ",window_start, ", (1,1): ",window_point)
+        // console.log("Window width: ",viewport_width, ", height: ",viewport_height)
+      }
 
     // initial size
     updateStageSize();
 
+
+  useEffect(() => {
     // resize listener
     if(!listenerAdded.current && viewerRef.current){
       viewerRef.current.addHandler("animation", updateStageSize);
@@ -904,54 +923,66 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
       //window.addEventListener("resize", updateStageSize);
       console.log("Added event listener for resizing")
     }
-
-    // cleanup
-  //   return () => {
-  //     // if(listenerAdded.current){
-  //     //   viewerRef.current.removeHandler("zoom", updateStageSize);
-  //     // }
-  //   }
-  // }, [stageRef, originOffsetRef, viewerRef]);
+    return () => {
+    }
+  }, [viewerRef.current]);
 
   return (
-    <div id="origin-offset" ref={originOffsetRef} style={{
-    zIndex: 1002,
-    pointerEvents: 'auto',
-    width:"100%",
-    height:"100%"
-  }}>
-
-      <GridOverlay item={item} />
+    <div id="EntireStage">
       
-      {originOffsetRef?.current && <>
-      <div style={{ position: "absolute", left: 0, top: 0, width: "5%", height: "5%", backgroundColor: "purple" }} />
-      <div style={{ position: "absolute", left: "95%", top: 0, width: "5%", height: "5%", backgroundColor: "green" }} />
-      <div style={{ position: "absolute", left: 0, top: "95%", width: "5%", height: "5%", backgroundColor: "blue" }} />
-      <div style={{ position: "absolute", left: "95%", top: "95%", width: "5%", height: "5%", backgroundColor: "yellow" }} />
-      </>}
+      <div id="origin-offset" ref={originOffsetRef} style={{
+      zIndex: 1002,
+      pointerEvents: 'auto',
+      width:"100%",
+      height:"100%"
+      }}>
+      
+        {/* {originOffsetRef.current && <>
+        <div style={{ position: "absolute", left: 0, top: 0, width: "5%", height: "5%", backgroundColor: "purple" }} />
+        <div style={{ position: "absolute", left: "95%", top: 0, width: "5%", height: "5%", backgroundColor: "green" }} />
+        <div style={{ position: "absolute", left: 0, top: "95%", width: "5%", height: "5%", backgroundColor: "blue" }} />
+        <div style={{ position: "absolute", left: "95%", top: "95%", width: "5%", height: "5%", backgroundColor: "yellow" }} />
+        </>} */}
+        
+      <div id="visible-offset" ref={visibleOffsetRef}
+        style={{
+        zIndex: 1003,
+        pointerEvents: 'auto',
+        width:"100%",
+        height:"100%"
+      }}>
+{/* 
+        <div style={{ position: "absolute", left: 0, top: 0, width: "10px", height: "10px", backgroundColor: "red", border: "1px solid green", boxsizing:"border-box"}} /> */}
+
+        <GridOverlay item={item} />
+      
 
       {/* <CanvasOverlay item={item} /> */}
 
-
-      {originOffsetRef?.current && 
+      {/* {originOffsetRef.current && 
       <Stage ref={stageRef} width={100} height={100}>
         <Layer>
-          <Rect x={45} y={45} width={10} height={10} fill="black" />
+        <Rect
+          x={45}
+          y={45}
+          width={10}
+          height={10}
+          stroke="black"
+          strokeWidth={1}
+          fillEnabled={false}
+          />
           <Rect x={95} y={95} width={5} height={5} fill="white" />
         </Layer>
-      </Stage>}
-      {/*
-      */}
-
-      {/*
+      </Stage>} */}
+      
       <Stage
-        ref={(ref) => {
+      ref={(ref) => {
           stageRef.current = ref;     
           item.setStageRef(ref);
-        }}
-        className={[item.styles?.['image-element'], ...imagePositionClassnames].join(' ')}
-        width={stage_width}
-        height={stage_height}
+          }}
+          className={[item.styles?.['image-element'], ...imagePositionClassnames].join(' ')}
+        width={1}
+        height={1}
         // x={0}
         // y={0}
         // scaleX={1}
@@ -961,12 +992,29 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
         onMouseMove={handleEvent('mousemove')}
         onMouseUp={handleEvent('mouseup')}
         >
-
+        
         <StageContent item={item} store={store} state={state} crosshairRef={crosshairRef} />
         
-      </Stage>
+        </Stage>
+
+        {/*
       */}
-    </div>
+    </div>{/*visible div*/}
+  </div>{/*offset div*/}
+    
+    {/* {!originOffsetRef.current && 
+    <div style={{ color: "red", fontSize: "14px" }}>No origin offset!</div>
+    }
+    {!viewerRef.current && 
+    <div style={{ color: "red", fontSize: "14px" }}>No viewer!</div>
+    }
+    {!stageRef.current && 
+    <div style={{ color: "red", fontSize: "14px" }}>No stage!</div>
+    }
+    { 
+    <div style={{ color: "red", fontSize: "14px" }}>Hotel: Trivago!</div>
+    } */}
+    </div>//entire stage
   );
 });
 
