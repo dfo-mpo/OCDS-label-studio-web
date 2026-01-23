@@ -30,6 +30,7 @@ import {
   FF_ZOOM_OPTIM,
   isFF,
 } from "../../../utils/feature-flags";
+import { clamp } from "lodash";
 
 const splitRegions = (regions) => {
   const brushRegions = [];
@@ -818,11 +819,47 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
     function updateStageSize() {
       if ((!stageRef.current || !originOffsetRef.current || !viewerRef.current)) return
 
-      const window_point = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(1.0,1.0))
-      const window_start = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(0.0,0.0))
+      //this is exactly the same as offsetDiv.clientWidth 
+      // const window_point = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(1.0,1.0))
+      // const window_start = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(0.0,0.0))
+      // const viewport_width = window_point.x-window_start.x
+      // const viewport_height = window_point.y-window_start.y
 
-      const viewport_width = window_start.x-window_point.x
-      const viewport_height = window_start.y-window_point.y
+
+      //ai summary
+      // The goal here is to position and scale the Konva stage so it matches the visible portion of the OpenSeadragon image. 
+      // `tlWindow` gives the top-left pixel coordinates of the visible viewport, which we use as the offset for the stage container. 
+      // `bound_width_window` and `bound_height_window` are the pixel dimensions of the visible image portion, which we apply to the container size. 
+      // The stage itself is then scaled so that drawing coordinates map correctly to the visible image. 
+      // This avoids rendering the entire image at full resolution, which could crash the stage, while ensuring overlays stay aligned with the viewer.
+
+      const viewport_end = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(1.0,1.0))
+      const viewport_start = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(0.0,0.0))
+      const rect = viewerRef.current.container.getBoundingClientRect()
+
+      const visible_bounds = viewerRef.current.viewport.getBounds(true)//(viewport reference frame)
+
+      const tlBound = visible_bounds.getTopLeft()
+      const brBound = visible_bounds.getBottomRight()
+
+      brBound.x = _.clamp(brBound.x,0.0,1.0)
+      brBound.y = _.clamp(brBound.y,0.0,1.0)
+      tlBound.x = _.clamp(tlBound.x,0.0,1.0)
+      tlBound.y = _.clamp(tlBound.y,0.0,1.0)
+
+      const tlWindow = viewerRef.current.viewport.viewportToWindowCoordinates(tlBound)
+      const brWindow = viewerRef.current.viewport.viewportToWindowCoordinates(brBound)
+
+      const tl_image = viewerRef.current.viewport.viewportToImageCoordinates(tlBound)
+
+      const bound_width_window = brWindow.x-tlWindow.x
+      const bound_height_window = brWindow.y-tlWindow.y
+
+      const element_width = rect.width
+      const element_height = rect.height
+        
+      // const viewport_width = window_point.x-window_start.x
+      // const viewport_height = window_point.y-window_start.y
 
       const offsetDiv = originOffsetRef.current;
       const stageWidth = offsetDiv.clientWidth;
@@ -848,8 +885,11 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
       stageRef.current.batchDraw();
 
       console.log("stageWidth: ",stageWidth, " stageHeight: ",stageHeight, " ScaleX: ",scaleX," ScaleY: ",scaleY)
-      console.log("Window start: ",window_start, ", (1,1): ",window_point)
-      console.log("Window width: ",viewport_width, ", height: ",viewport_height)
+      console.log("OSD rect: ",rect,"OSD visible bounds: ",visible_bounds)
+      console.log("visible bounds width: ",bound_width_window, ", height: ",bound_height_window)
+      console.log("OSD TL window: ",tlWindow)
+      // console.log("Window start: ",window_start, ", (1,1): ",window_point)
+      // console.log("Window width: ",viewport_width, ", height: ",viewport_height)
     }
 
     // initial size

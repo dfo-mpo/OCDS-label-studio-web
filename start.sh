@@ -44,6 +44,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/" && pwd)"
 
 echo "REPO ROOT: $REPO_ROOT"
 
+#screen name, for terminal reconnection
+SCREEN_NAME="label-studio-screen"
+
 # Define relative paths
 LABEL_STUDIO_DIR="$REPO_ROOT/label_studio"
 NGINX_CONFIG="$REPO_ROOT/nginx/conf/nginx.conf"
@@ -284,12 +287,28 @@ generate_nginx_conf() {
 }
 
 
+# create_screen_session() {
+#     # Check if a screen with this name already exists
+#     local EXISTING_SCREEN
+#     EXISTING_SCREEN=$(screen -ls | grep -w "$SCREEN_NAME" || true)
+#     if [ -n "$EXISTING_SCREEN" ]; then
+#         print_warning "Existing screen '$SCREEN_NAME' detected. Shutting it down..."
+#         screen -S "$SCREEN_NAME" -X quit
+#         sleep 1
+#     fi
+
+#     # Launch a new interactive screen
+#     screen -S "$SCREEN_NAME"
+
+#     print_status "Screen created: $SCREEN_NAME. Terminal session can now be reconnected later with: screen -r $SCREEN_NAME"
+# }
 
 
 # Main execution
 case "${1:-start}" in
     start)
 
+        # create_screen_session
 
         generate_nginx_conf
 
@@ -303,6 +322,8 @@ case "${1:-start}" in
         ;;
     front-dev)
     
+        # create_screen_session
+
         print_status "Starting frontend development server..."
         stop_services
 
