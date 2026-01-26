@@ -100,7 +100,7 @@ const SELECTION_DASH = [3, 3];
  */
 const SelectionRect = observer(({ item }) => {
   if(!item.onCanvasRect){
-    console.log("Borken")
+    console.log("Selection rect: no canvas rect?")
   }
   const { x, y, width, height } = item.onCanvasRect;
 
@@ -790,9 +790,10 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
   // }
 
-  console.log("Entire Stage, dragonDefined: ",dragonDefined)
+  // console.log("Entire Stage, dragonDefined: ",dragonDefined)
 
   const handleEvent = (type) => (e) => {
+    console.log("EVENT: ",type)
     const { offsetX: x, offsetY: y } = e.evt || e;
     item.event(type, e, x, y);
   };
@@ -808,14 +809,21 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   //   console.log("Stage width: ",stage_width, " Stage height: ", stage_height, "Rect: ",bounding_rect)
   // }
 
-  // if(dragonDefined){
-  //   console.log("look here")
-  //   //const tileSource = viewerRef.current.world.getItemAt(0).getContentSize();
-  //   const tileSource = viewerRef.current.world.getItemAt(0).getContentSize();
-  //   console.log("tileSource: ",tileSource)
-  //   stage_width = 500
-  //   stage_height = 500
-  // }
+  /*
+  Input is broken
+  Regions dont know how zoomed in we are / what we are looking at, either tell them where we are zoomed in
+  or just force it to always be zoomed out
+
+  to fix:
+  Adding regions, drawing selection box, verify drawing regions in right spot
+
+  todo:
+  auto conversion of images to dzi, and convert urls to find the dzis
+  so that the preview still renders the image regularly 
+
+  */
+
+
 
       function updateStageSize() {
         if ((!stageRef.current || !originOffsetRef.current || !viewerRef.current || !visibleOffsetRef.current)) return
@@ -866,7 +874,7 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
         stageRef.current.width(stageWidth);
         stageRef.current.height(stageHeight);
-        const stage_content_internal_resolution = { x: 400, y: 400 }; // Stage point we want to reach bottom-right
+        const stage_content_internal_resolution = { x: 100, y: 100 }; // Stage point we want to reach bottom-right
 
         const scaleX = viewport_width  / stage_content_internal_resolution.x;
         const scaleY = viewport_height / stage_content_internal_resolution.y; 
@@ -876,7 +884,7 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
         //so thats like 800x800 ish
         //then we will need to scale it, so that things drawn at like 100 is at the far part of teh image
 
-        console.log("tlWindowX: ",tlWindow.x, "left offset: ",stageRef.current.left)
+        //console.log("tlWindowX: ",tlWindow.x, "left offset: ",stageRef.current.left)
 
         const container = visibleOffsetRef.current//stageRef.current.container();
         container.style.position = 'absolute'; // or relative, depending on layout
@@ -885,21 +893,19 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
         //container.id = "stage-container"
 
-        console.log("Stage container id: ",container.id)
-
-        console.log("DEBUG CONSTANT SCALE")
+        // console.log("Stage container id: ",container.id)
 
         stageRef.current.scale({ x: scaleX, y: scaleY });
         stageRef.current.position({ x: -scaleX* stage_content_internal_resolution.x*tlBound.x, y: -scaleY*stage_content_internal_resolution.y*tlBound.y }); // top-left corner as origin
         stageRef.current.batchDraw();
 
-        console.log("stageWidth: ",stageWidth, " stageHeight: ",stageHeight, " ScaleX: ",scaleX," ScaleY: ",scaleY)
+        // console.log("stageWidth: ",stageWidth, " stageHeight: ",stageHeight, " ScaleX: ",scaleX," ScaleY: ",scaleY)
         
-        console.log("tlbound: ",tlBound.x, tlBound.y, tlBound)
+        // console.log("tlbound: ",tlBound.x, tlBound.y, tlBound)
 
-        console.log("offset_pos: ",offset_pos.x,", ",offset_pos.y)
+        // console.log("offset_pos: ",offset_pos.x,", ",offset_pos.y)
 
-        console.log("Viewport height: ",viewport_height)
+        // console.log("Viewport height: ",viewport_height)
 
 
         //console.log("OSD rect: ",rect,"OSD visible bounds: ",visible_bounds)
@@ -921,7 +927,7 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
       listenerAdded.current = true
       //window.addEventListener("resize", updateStageSize);
-      console.log("Added event listener for resizing")
+      console.log("Succesfully added event listener for resizing")
     }
     return () => {
     }
@@ -931,7 +937,7 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
     <div id="EntireStage">
       
       <div id="origin-offset" ref={originOffsetRef} style={{
-      zIndex: 1002,
+      zIndex: 1000,
       pointerEvents: 'auto',
       width:"100%",
       height:"100%"
@@ -946,7 +952,7 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
         
       <div id="visible-offset" ref={visibleOffsetRef}
         style={{
-        zIndex: 1003,
+        zIndex: 1002,
         pointerEvents: 'auto',
         width:"100%",
         height:"100%"

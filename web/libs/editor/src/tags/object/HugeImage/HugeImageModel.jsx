@@ -31,8 +31,36 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
     minZoom: 0,
     maxZoom: 300,
     homeZoom: 1,
+    // stageHeight: 1,
+    // stageWidth: 1
   })
   .actions((self) => ({
+
+    //override canvas-internal transformations
+    canvasToInternalX(n) {
+      //RELTAIVE_STAGE_WIDTH is 100 normally
+      //and since the canvas is now 0-100, we dont want anything happening with stage width
+      //this seems primarily used for the rect regions to know how wide they should be
+
+      //return (n / self.stageWidth) * RELATIVE_STAGE_WIDTH;
+      return n
+    },
+
+    canvasToInternalY(n) {
+      //return (n / self.stageHeight) * RELATIVE_STAGE_HEIGHT;
+      return n
+    },
+
+    internalToCanvasX(n) {
+      //return (n / RELATIVE_STAGE_WIDTH) * self.stageWidth;
+      return n
+    },
+
+    internalToCanvasY(n) {
+      //return (n / RELATIVE_STAGE_HEIGHT) * self.stageHeight;
+      return n
+    },
+
     // Override parent setZoom - must be defined first
     setZoom(scale) {
       scale = clamp(scale, 1, Number.POSITIVE_INFINITY);
