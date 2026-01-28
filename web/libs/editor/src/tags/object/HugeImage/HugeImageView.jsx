@@ -757,6 +757,15 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   let stageRef = useRef(null)
   let visibleOffsetRef = useRef(null)
   
+  let viewport_width = useRef(0.0)
+  let viewport_height = useRef(0.0)
+
+  let canvas_width = useRef(0.0)
+  let canvas_height = useRef(0.0)
+
+  let tlBound = useRef(null)
+  let brBound = useRef(null)
+
   useEffect(() => {
     if(viewerRef.current && originOffsetRef.current){
       if(!overlayRef.current){
@@ -793,21 +802,30 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   // console.log("Entire Stage, dragonDefined: ",dragonDefined)
 
   const handleEvent = (type) => (e) => {
-    console.log("EVENT: ",type)
+
+    const viewport = viewerRef.current.viewport;
+    //const offset_pos = {x: (e.clientX+visibleOffsetRef.current.left)/viewport_width.current, y: (e.clientY+visibleOffsetRef.current.top/viewport_height.current)}
+    // const viewportPos = viewport.pointFromPixel(new OpenSeadragon.Point(e.screenX,e.screenY))
+    // console.log("pageXY:(",e.evt.pageX, ", ", e.evt.pageY, ") screenXY: (",e.evt.screenX, ", ",e.evt.screenY,") offsetXY: (",e.evt.offsetX, ", ",e.evt.offsetY,"), canvasWH:(", canvas_width.current,", ",canvas_height.current ,")")
+  
+    //Normalize mouse position to [0, 1] in stage space
+    const nx = e.evt.offsetX / canvas_width.current;
+    const ny = e.evt.offsetY / canvas_height.current;
+    //Compute visible viewport span
+    const spanX = brBound.current.x - tlBound.current.x;
+    const spanY = brBound.current.y - tlBound.current.y;
+
+    //Map into viewport coordinates
+    const viewportPoint = {
+      x: tlBound.current.x + nx * spanX,
+      y: tlBound.current.y + ny * spanY,
+    };
+
+    
+
     const { offsetX: x, offsetY: y } = e.evt || e;
-    item.event(type, e, x, y);
+    item.event(type, e, x, y);//this goes to image.js 
   };
-
-  // let stage_width = 25
-  // let stage_height = 25
-  // if(overlayRef?.current){
-  //   const el = overlayRef.current;
-
-  //   const bounding_rect = overlayRef.current.getBoundingClientRect()
-  //   stage_width = parseFloat(el.style.width);
-  //   stage_height = parseFloat(el.style.height);``
-  //   console.log("Stage width: ",stage_width, " Stage height: ", stage_height, "Rect: ",bounding_rect)
-  // }
 
   /*
   Input is broken
@@ -836,83 +854,59 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
         const viewport_end = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(1.0,1.0))
         const viewport_start = viewerRef.current.viewport.viewportToWindowCoordinates(new OpenSeadragon.Point(0.0,0.0))
 
-        const viewport_width = viewport_end.x-viewport_start.x
-        const viewport_height = viewport_end.y-viewport_start.y
+        viewport_width.current = viewport_end.x-viewport_start.x
+        viewport_height.current = viewport_end.y-viewport_start.y
 
         const visible_bounds = viewerRef.current.viewport.getBounds(true)//(viewport reference frame)
 
         const offset_rect = originOffsetRef.current.getBoundingClientRect()
         const offset_pos = { x: offset_rect.left, y: offset_rect.top };
 
-        const tlBound = visible_bounds.getTopLeft()
-        const brBound = visible_bounds.getBottomRight()
+        tlBound.current = visible_bounds.getTopLeft()
+        brBound.current = visible_bounds.getBottomRight()
 
-        brBound.x = _.clamp(brBound.x,0.0,1.0)
-        brBound.y = _.clamp(brBound.y,0.0,1.0)
-        tlBound.x = _.clamp(tlBound.x,0.0,1.0)
-        tlBound.y = _.clamp(tlBound.y,0.0,1.0)
+        brBound.current.x = _.clamp(brBound.current.x,0.0,1.0)
+        brBound.current.y = _.clamp(brBound.current.y,0.0,1.0)
+        tlBound.current.x = _.clamp(tlBound.current.x,0.0,1.0)
+        tlBound.current.y = _.clamp(tlBound.current.y,0.0,1.0)
 
-        const tlWindow = viewerRef.current.viewport.viewportToWindowCoordinates(tlBound)
-        const brWindow = viewerRef.current.viewport.viewportToWindowCoordinates(brBound)
-
-        //const tl_image = viewerRef.current.viewport.viewportToImageCoordinates(tlBound)
+        const tlWindow = viewerRef.current.viewport.viewportToWindowCoordinates(tlBound.current)
+        const brWindow = viewerRef.current.viewport.viewportToWindowCoordinates(brBound.current)
 
         const bound_width_window = brWindow.x-tlWindow.x
         const bound_height_window = brWindow.y-tlWindow.y
-        // const viewport_width = window_point.x-window_start.x
-        // const viewport_height = window_point.y-window_start.y
 
-        // const offsetDiv = originOffsetRef.current;
-        // const stageWidth = offsetDiv.clientWidth;
-        // const stageHeight = offsetDiv.clientHeight;
-        
-        const stageWidth = bound_width_window
-        const stageHeight = bound_height_window
+        canvas_height.current = bound_height_window
+        canvas_width.current = bound_width_window
 
-        //const stageWidth = viewport_width
-        //const stageHeight = viewport_height
-
-        stageRef.current.width(stageWidth);
-        stageRef.current.height(stageHeight);
+        stageRef.current.width(bound_width_window);
+        stageRef.current.height(bound_height_window);
         const stage_content_internal_resolution = { x: 100, y: 100 }; // Stage point we want to reach bottom-right
 
-        const scaleX = viewport_width  / stage_content_internal_resolution.x;
-        const scaleY = viewport_height / stage_content_internal_resolution.y; 
+        //this is normally STAGE_RELATIVE_HEIGHT in imageview/image.js
+        //which is a hardcoded constant = 100
         
-        //so we cant just draw teh stage to be the entire size of teh image, that will crash it
-        //so instead we draw it to cover the rendered image
-        //so thats like 800x800 ish
-        //then we will need to scale it, so that things drawn at like 100 is at the far part of teh image
+        const scaleX = viewport_width.current  / stage_content_internal_resolution.x;
+        const scaleY = viewport_height.current / stage_content_internal_resolution.y; 
+        
+        //so the visibleOffset div is a child of the originOffset div
+        //so when we want to offset this container to be at a position on the screen
+        //aka tlWindow, this position has already been offset by the translation applied to originoffsetdiv
+        //if we just used it as is, we would be translating by that twice
+        //so we subtract the origin of the offset div, so we only do it once
 
-        //console.log("tlWindowX: ",tlWindow.x, "left offset: ",stageRef.current.left)
+        //you can also think of this as computing the vector from the offset origin to the position on the screen
+        //and then applying that as our translation, in offset origin space
 
-        const container = visibleOffsetRef.current//stageRef.current.container();
-        container.style.position = 'absolute'; // or relative, depending on layout
+        const container = visibleOffsetRef.current
+        container.style.position = 'absolute'; 
         container.style.left = `${tlWindow.x-offset_pos.x}px`;
         container.style.top  = `${tlWindow.y-offset_pos.y}px`;
 
-        //container.id = "stage-container"
-
-        // console.log("Stage container id: ",container.id)
-
         stageRef.current.scale({ x: scaleX, y: scaleY });
-        stageRef.current.position({ x: -scaleX* stage_content_internal_resolution.x*tlBound.x, y: -scaleY*stage_content_internal_resolution.y*tlBound.y }); // top-left corner as origin
+        stageRef.current.position({ x: -scaleX* stage_content_internal_resolution.x*tlBound.current.x, y: -scaleY*stage_content_internal_resolution.y*tlBound.current.y }); // top-left corner as origin
         stageRef.current.batchDraw();
 
-        // console.log("stageWidth: ",stageWidth, " stageHeight: ",stageHeight, " ScaleX: ",scaleX," ScaleY: ",scaleY)
-        
-        // console.log("tlbound: ",tlBound.x, tlBound.y, tlBound)
-
-        // console.log("offset_pos: ",offset_pos.x,", ",offset_pos.y)
-
-        // console.log("Viewport height: ",viewport_height)
-
-
-        //console.log("OSD rect: ",rect,"OSD visible bounds: ",visible_bounds)
-        //console.log("visible bounds width: ",bound_width_window, ", height: ",bound_height_window)
-        //console.log("OSD TL window: ",tlWindow)
-        // console.log("Window start: ",window_start, ", (1,1): ",window_point)
-        // console.log("Window width: ",viewport_width, ", height: ",viewport_height)
       }
 
     // initial size
@@ -937,8 +931,8 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
     <div id="EntireStage">
       
       <div id="origin-offset" ref={originOffsetRef} style={{
-      zIndex: 1000,
-      pointerEvents: 'auto',
+      // zIndex: 1000,
+      // pointerEvents: 'none',
       width:"100%",
       height:"100%"
       }}>
@@ -952,16 +946,15 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
         
       <div id="visible-offset" ref={visibleOffsetRef}
         style={{
-        zIndex: 1002,
-        pointerEvents: 'auto',
+        // zIndex: 1000,
+        // pointerEvents: 'none',
         width:"100%",
         height:"100%"
       }}>
 {/* 
         <div style={{ position: "absolute", left: 0, top: 0, width: "10px", height: "10px", backgroundColor: "red", border: "1px solid green", boxsizing:"border-box"}} /> */}
-
-        <GridOverlay item={item} />
-      
+{/* 
+        <GridOverlay item={item} /> */}
 
       {/* <CanvasOverlay item={item} /> */}
 
