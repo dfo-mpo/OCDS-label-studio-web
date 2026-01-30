@@ -802,6 +802,7 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
       return
     }
     console.log("Viewport pos: ",viewportPos, " Event: ",e)
+    item.updateCanvasSize(viewerRef.current.canvas.offsetWidth,viewerRef.current.canvas.offsetHeight) 
 
     if(type=="doubleclick"){//because LS cant deal with double clicks apparently?
       item.event("dblclick", e.originalEvent, viewportPos.x, viewportPos.y);//this goes to image.js 

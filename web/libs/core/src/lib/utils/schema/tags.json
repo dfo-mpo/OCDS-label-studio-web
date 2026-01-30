@@ -314,6 +314,20 @@
         "type": ["none", "anonymous", "use-credentials"],
         "required": false,
         "default": "none"
+      },
+      "defaultRectWidth": {
+        "name": "defaultRectWidth",
+        "description": "Default WIDTH of region when double click, in percent",
+        "type": "float",
+        "required": false,
+        "default": 10.0
+      },
+      "defaultRectHeight": {
+        "name": "defaultRectHeight",
+        "description": "Default HEIGHT of region when double click, in percent",
+        "type": "float",
+        "required": false,
+        "default": 10.0
       }
     }
   },

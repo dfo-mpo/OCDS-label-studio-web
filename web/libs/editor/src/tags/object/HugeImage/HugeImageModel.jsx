@@ -31,9 +31,12 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
     minZoom: 0,
     maxZoom: 300,
     homeZoom: 1,
-    // canvasSize: {width: 100, height:100}
-    // stageHeight: 1,
-    // stageWidth: 1
+    _canvasWidth: 1,
+    _canvasHeight: 1,
+
+    // override default rect size
+    defaultrectheight: types.optional(types.string, "1.0"),
+    defaultrectwidth: types.optional(types.string, "1.0"),
   })
   .actions((self) => ({
 
@@ -239,9 +242,14 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
     },
 
     setZoomLimits({ minZoom, maxZoom, homeZoom }) {
-      this.minZoom = minZoom;
-      this.maxZoom = maxZoom;
-      this.homeZoom = homeZoom;
+      self.minZoom = minZoom;
+      self.maxZoom = maxZoom;
+      self.homeZoom = homeZoom;
+    },
+
+    updateCanvasSize(width, height){
+      self._canvasWidth = width
+      self._canvasHeight = height
     },
 
     afterAttach() {
@@ -254,13 +262,7 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
       //because canvas is now 100x100 internal
       //and the rendered is nunya business
       //we just use viewport 0-1 coordinates
-      if(self.canvasSize){
-          self.canvasSize.width = 100
-          self.canvasSize.height = 100
-      }
-      else{
-        self.canvasSize = {width:100,height:100}
-      }
+
       // Add standard image tools
       if (self.selectionControl) manager.addTool("MoveTool", Tools.Selection.create({}, env), "MoveTool");
       if (self.zoomControl) manager.addTool("ZoomPanTool", Tools.Zoom.create({}, env), "ZoomPanTool");
@@ -312,8 +314,8 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
     //this is terrible code
     get canvasSize() {
       return {
-        width: 100,
-        height: 100
+        width: self._canvasWidth,
+        height: self._canvasHeight
       }
       // if (self.isSideways) {
       //   return {

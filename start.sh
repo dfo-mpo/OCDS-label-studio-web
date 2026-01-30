@@ -347,6 +347,7 @@ case "${1:-start}" in
         print_status "Please connect to localhost:$FRONT_PORT via local port forwarding to access the frontend-dev server"
         print_status "Please connect to localhost:$FRONT_PORT via local port forwarding to access the frontend-dev server"
         print_status "Please connect to localhost:$FRONT_PORT via local port forwarding to access the frontend-dev server"
+        print_status "Front-dev mode seems to have a memory leak, it will crash after around 5 hours, so please use other modes for production"
         print_status "Webpack will have to build first before you can connect"
         echo
         echo

@@ -359,6 +359,15 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
 
         let dX = self.defaultDimensions.width;
         let dY = self.defaultDimensions.height;
+        //override it if the model says to
+        //preferably its even a labelling config
+        if(self.obj.defaultrectwidth){
+          console.log("self.obj.defaultRectWidth: ", self.obj.defaultrectwidth)
+          dX = Number.parseFloat(self.obj.defaultrectwidth);
+        }
+        if(self.obj.defaultrectheight){
+          dY = Number.parseFloat(self.obj.defaultrectheight);
+        }
 
         if (isFF(FF_DEV_3793)) {
           dX = self.obj.canvasToInternalX(dX);

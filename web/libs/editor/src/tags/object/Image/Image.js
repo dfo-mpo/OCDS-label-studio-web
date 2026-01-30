@@ -86,6 +86,9 @@ const IMAGE_PRELOAD_COUNT = 3;
  * @param {boolean} [saturationControl=false]   - Show saturation control in toolbar
  * @param {boolean} [invertControl=false]   - Show invert control in toolbar
 
+ * @param {float=} [defaultrectwidth=10.0]   - Default size of region when dbl click
+ * @param {float=} [defaultrectheight=10.0]   - Default size of region when dbl click
+
  * @param {boolean} [rotateControl=false]     - Show rotate control in toolbar
  * @param {boolean} [crosshair=false]         - Show crosshair cursor
  * @param {left|center|right} [horizontalAlignment=left]      - Where to align image horizontally. Can be one of "left", "center", or "right"
@@ -124,6 +127,8 @@ const TagAttrs = types.model({
   crosshair: types.optional(types.boolean, false),
   selectioncontrol: types.optional(types.boolean, true),
 
+  defaultrectheight: types.optional(types.string, "15.0"),
+  defaultrectwidth: types.optional(types.string, "15.0"),
 
   // this property is just to turn lazyload off to e2e tests
   lazyoff: types.optional(types.boolean, false),
@@ -492,6 +497,7 @@ const Model = types
     get zoomBy() {
       return Number.parseFloat(self.zoomby);
     },
+
     get isDrawing() {
       return !!self.drawingRegion;
     },
