@@ -31,6 +31,7 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
     minZoom: 0,
     maxZoom: 300,
     homeZoom: 1,
+    // canvasSize: {width: 100, height:100}
     // stageHeight: 1,
     // stageWidth: 1
   })
@@ -48,6 +49,9 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
 
     canvasToInternalY(n) {
       //return (n / self.stageHeight) * RELATIVE_STAGE_HEIGHT;
+
+
+      
       return n
     },
 
@@ -134,6 +138,7 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
       self.setZoomPosition((containerWidth - width * zoomScale) / 2, (containerHeight - height * zoomScale) / 2);
     },
 
+
     //override other zooming functions
     
     sizeToFit() {
@@ -159,6 +164,33 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
       self.setZoom(self.minZoom);
       self.updateImageAfterZoom();
       self.resetZoomPositionToCenter();
+    },
+
+    //override fixZoomedCoords
+    // convert screen coords to image coords considering zoom
+    fixZoomedCoords([x, y]) {
+      return [x, y];
+    },
+
+    //override zoomOriginalCoords 
+    // convert image coords to screen coords considering zoom
+    zoomOriginalCoords([x, y]) {
+      //const p = self.stageRef.getAbsoluteTransform().point({ x, y });
+      return [x, y];
+    },
+
+    //override event function
+    event(name, ev, internalX, internalY) {
+      //const [canvasX, canvasY] = self.fixZoomedCoords([screenX, screenY]);
+
+      // const x = self.canvasToInternalX(canvasX);
+      // const y = self.canvasToInternalY(canvasY);
+
+      const canvasX = internalX*100
+      const canvasY = internalY*100
+      const toolsManager = self.getToolsManager() 
+      //toolsManager.event(name, ev.evt || ev, internalX, internalY, canvasX, canvasY);
+      toolsManager.event(name, ev.evt || ev, canvasX, canvasY);
     },
 
     //override the handle zoom function
@@ -219,6 +251,16 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
       const manager = self.manager;
       const env = { manager, control: self };
 
+      //because canvas is now 100x100 internal
+      //and the rendered is nunya business
+      //we just use viewport 0-1 coordinates
+      if(self.canvasSize){
+          self.canvasSize.width = 100
+          self.canvasSize.height = 100
+      }
+      else{
+        self.canvasSize = {width:100,height:100}
+      }
       // Add standard image tools
       if (self.selectionControl) manager.addTool("MoveTool", Tools.Selection.create({}, env), "MoveTool");
       if (self.zoomControl) manager.addTool("ZoomPanTool", Tools.Zoom.create({}, env), "ZoomPanTool");
@@ -233,33 +275,67 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
       return self.manager;
     },
 
-    onMouseDown(x, y, event) {
-      const activeTool = self.manager?.activeTool;
-      if (activeTool?.onMouseDown) {
-        activeTool.onMouseDown({ x, y, originalEvent: event.originalEvent });
-      }
-    },
+    // onMouseDown(x, y, event) {
+    //   const activeTool = self.manager?.activeTool;
+    //   if (activeTool?.onMouseDown) {
+    //     activeTool.onMouseDown({ x, y, originalEvent: event.originalEvent });
+    //   }
+    // },
 
-    onMouseUp(x, y, event) {
-      const activeTool = self.manager?.activeTool;
-      if (activeTool?.onMouseUp) {
-        activeTool.onMouseUp({ x, y, originalEvent: event.originalEvent });
-      }
-    },
+    // onMouseUp(x, y, event) {
+    //   const activeTool = self.manager?.activeTool;
+    //   if (activeTool?.onMouseUp) {
+    //     activeTool.onMouseUp({ x, y, originalEvent: event.originalEvent });
+    //   }
+    // },
 
-    onClick(x, y, event) {
-      const activeTool = self.manager?.activeTool;
-      if (activeTool?.onClick) {
-        activeTool.onClick({ x, y, originalEvent: event.originalEvent });
-      }
-    },
+    // onClick(x, y, event) {
+    //   const activeTool = self.manager?.activeTool;
+    //   if (activeTool?.onClick) {
+    //     activeTool.onClick({ x, y, originalEvent: event.originalEvent });
+    //   }
+    // },
 
-    onMouseMove(x, y, event) {
-      const activeTool = self.manager?.activeTool;
-      if (activeTool?.onMouseMove) {
-        activeTool.onMouseMove({ x, y, originalEvent: event.originalEvent });
+    // onMouseMove(x, y, event) {
+    //   const activeTool = self.manager?.activeTool;
+    //   if (activeTool?.onMouseMove) {
+    //     activeTool.onMouseMove({ x, y, originalEvent: event.originalEvent });
+    //   }
+    // },
+  }))
+  .views((self) => ({
+
+    //override canvasSize
+    //why is the function for getting the canvas size even on the model side?
+    //it has no idea what rendering looks like
+    //and so it has no reference to viewerRef
+    //this is terrible code
+    get canvasSize() {
+      return {
+        width: 100,
+        height: 100
       }
-    },
+      // if (self.isSideways) {
+      //   return {
+      //     width: isFF(FF_DEV_3377)
+      //       ? self.naturalHeight * self.stageZoomX
+      //       : Math.round(self.naturalHeight * self.stageZoomX),
+      //     height: isFF(FF_DEV_3377)
+      //       ? self.naturalWidth * self.stageZoomY
+      //       : Math.round(self.naturalWidth * self.stageZoomY),
+      //   };
+      // }
+
+      // return {
+      //   width: isFF(FF_DEV_3377)
+      //     ? self.naturalWidth * self.stageZoomX
+      //     : Math.round(self.naturalWidth * self.stageZoomX),
+      //   height: isFF(FF_DEV_3377)
+      //     ? self.naturalHeight * self.stageZoomY
+      //     : Math.round(self.naturalHeight * self.stageZoomY),
+      // };
+    }
+
   }));
 
 // Inject store into your view

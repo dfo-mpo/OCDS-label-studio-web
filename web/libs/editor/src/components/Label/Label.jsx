@@ -35,7 +35,7 @@ export const Label = React.forwardRef(
       };
     }, [color]);
 
-    console.log(onClick);
+    //console.log(onClick);
     
     return (
       <Block

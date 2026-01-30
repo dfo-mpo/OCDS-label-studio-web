@@ -408,8 +408,8 @@ export default observer(
           clickToZoom: false,
           dblClickToZoom: false,
           flickEnabled: false,
-          dragToPan: false,   
-          scrollToZoom: false,
+          dragToPan: true,   
+          scrollToZoom: true,
         },
       });
       
@@ -417,26 +417,26 @@ export default observer(
 
       if (viewer.controls) {
         for (let i = 0; i < viewer.controls.length; i++) {
-          viewer.controls[i].element.style.zIndex = '1003';
-          viewer.controls[i].container.style.zIndex = '1003';
-          viewer.controls[i].wrapper.style.zIndex = '1003';
-
+          viewer.controls[i].element.style.zIndex = '1016';
+          viewer.controls[i].container.style.zIndex = '1016';
+          viewer.controls[i].wrapper.style.zIndex = '1016';
         }
       }
+      // if(viewer.canvas){
+      //   viewer.canvas.style.zIndex='1001';
+      // }
       
-      // ---- Shim Konva-like API ----
-      viewer.getAbsoluteTransform = function () {
-        return {
-          copy() { return this; },
-          invert() { return this; },
-          point({ x, y }) {
-            const p = viewer.viewport.pointFromPixel(new OpenSeadragon.Point(x, y));
-            return { x: p.x, y: p.y };
-          }
-        };
-      };
-
-      
+      // // ---- Shim Konva-like API ----
+      // viewer.getAbsoluteTransform = function () {
+      //   return {
+      //     copy() { return this; },
+      //     invert() { return this; },
+      //     point({ x, y }) {
+      //       const p = viewer.viewport.pointFromPixel(new OpenSeadragon.Point(x, y));
+      //       return { x: p.x, y: p.y };
+      //     }
+      //   };
+      // };
 
       this.viewerRef.current = viewer;
 
@@ -518,38 +518,6 @@ export default observer(
       if (item.currentSrc || item.parsedValue) {
         this.initializeOpenSeadragon();
       }
-
-      // // Set up reaction to listen for zoom changes
-      // this.disposeReaction = reaction(
-      //   () => ({
-      //     currentZoom: item.currentZoom,
-      //     stageZoom: item.stageZoom,
-      //     zoomScale: item.zoomScale,
-      //     stageX: item.zoomingPositionX,
-      //     stageY: item.zoomingPositionY
-      //   }),
-      //   ({ currentZoom, stageZoom, zoomScale, stageX, stageY }) => {
-      //     if (this.viewerRef.current) {
-
-      //       const viewport = this.viewerRef.current.viewport;
-      //       item.setZoomLimits({
-      //         minZoom: viewport.getMinZoom(),
-      //         maxZoom: viewport.getMaxZoom(),
-      //         homeZoom: viewport.getHomeZoom(),
-      //       });
-
-      //       const homeZoom = viewport.getHomeZoom();
-
-      //       //console.log("StageX, StageY: ", stageX, stageY)
-      //       console.log("stageZoom: ",stageZoom, "CurrentZoom: ",currentZoom, "Zoomscale: ",zoomScale)
-
-      //       const zoomPoint = viewport.pointFromPixel(new OpenSeadragon.Point(stageX,stageY));
-      //       //console.log("zoomPoint: ",zoomPoint)
-
-      //       viewport.zoomTo(zoomScale, zoomPoint, true);
-      //     }
-      //  }
-      //)
     }//end did mount
 
     componentWillUnmount() {
@@ -694,21 +662,18 @@ export default observer(
 
     //KONVA COMPATIBILITY FOR LABEL STUDIO
 
-    //so zoom.jsx doesnt break
-    container() {
-      // Return the OSD container DOM node by id or ref
-      console.log("Called container placeholder")
-      return document.getElementById(`openseadragon-${this.props.item.name}`);
-    }
+    // //so zoom.jsx doesnt break
+    // container() {
+    //   // Return the OSD container DOM node by id or ref
+    //   console.log("Called container placeholder")
+    //   return document.getElementById(`openseadragon-${this.props.item.name}`);
+    // }
 
-
-
-
-    setCursor(cursor) {
-      console.log("Called cursor placeholder")
-      const container = this.container();
-      if (container) container.style.cursor = cursor;
-    }
+    // setCursor(cursor) {
+    //   console.log("Called cursor placeholder")
+    //   const container = this.container();
+    //   if (container) container.style.cursor = cursor;
+    // }
 
     //i think this has to go in the model
 
@@ -766,6 +731,9 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   let tlBound = useRef(null)
   let brBound = useRef(null)
 
+  //indicator to see if the event position matches viewport coordinates, it does
+  // let indicatorRef = useRef(null)
+
   useEffect(() => {
     if(viewerRef.current && originOffsetRef.current){
       if(!overlayRef.current){
@@ -801,30 +769,57 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
   // console.log("Entire Stage, dragonDefined: ",dragonDefined)
 
-  const handleEvent = (type) => (e) => {
 
-    const viewport = viewerRef.current.viewport;
-    //const offset_pos = {x: (e.clientX+visibleOffsetRef.current.left)/viewport_width.current, y: (e.clientY+visibleOffsetRef.current.top/viewport_height.current)}
-    // const viewportPos = viewport.pointFromPixel(new OpenSeadragon.Point(e.screenX,e.screenY))
-    // console.log("pageXY:(",e.evt.pageX, ", ", e.evt.pageY, ") screenXY: (",e.evt.screenX, ", ",e.evt.screenY,") offsetXY: (",e.evt.offsetX, ", ",e.evt.offsetY,"), canvasWH:(", canvas_width.current,", ",canvas_height.current ,")")
-  
+  function canvasToInternal(canvasX, canvasY){
     //Normalize mouse position to [0, 1] in stage space
-    const nx = e.evt.offsetX / canvas_width.current;
-    const ny = e.evt.offsetY / canvas_height.current;
+    // const nx = e.evt.offsetX / canvas_width.current;
+    // const ny = e.evt.offsetY / canvas_height.current;
+    
+    const nx = canvasX / canvas_width.current;
+    const ny = canvasY / canvas_height.current;
+    
     //Compute visible viewport span
     const spanX = brBound.current.x - tlBound.current.x;
     const spanY = brBound.current.y - tlBound.current.y;
 
     //Map into viewport coordinates
-    const viewportPoint = {
-      x: tlBound.current.x + nx * spanX,
-      y: tlBound.current.y + ny * spanY,
-    };
+    const ix = tlBound.current.x + nx * spanX
+    const iy = tlBound.current.y + ny * spanY
 
-    
+    return {x: ix,y: iy}
+  }
 
-    const { offsetX: x, offsetY: y } = e.evt || e;
-    item.event(type, e, x, y);//this goes to image.js 
+
+  const handleOSDkeyEvent = (type) => (e) => {
+    console.log("Key event: ",e)
+  }
+
+  const handleOSDEvent = (type) => (e) => {
+    const viewport = viewerRef.current.viewport;
+    const viewportPos = viewport.pointFromPixel(e.position)
+    //outside of image
+    if(viewportPos.x < 0 || viewportPos.y < 0 || viewportPos.x > 1 || viewportPos.y > 1){
+      return
+    }
+    console.log("Viewport pos: ",viewportPos, " Event: ",e)
+
+    if(type=="doubleclick"){//because LS cant deal with double clicks apparently?
+      item.event("dblclick", e.originalEvent, viewportPos.x, viewportPos.y);//this goes to image.js 
+v   }
+    item.event(type, e.originalEvent, viewportPos.x, viewportPos.y);//this goes to image.js 
+
+    if(e.originalEvent.shiftKey){
+      if(type=="drag"){
+        console.log("Shift + dragging")
+      }
+      if(type=="click"){
+        console.log("shift click")
+      }
+      if(type=="double-click"){
+        console.log("Shift double click")
+      }
+    }
+
   };
 
   /*
@@ -840,7 +835,6 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   so that the preview still renders the image regularly 
 
   */
-
 
 
       function updateStageSize() {
@@ -922,6 +916,17 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
       listenerAdded.current = true
       //window.addEventListener("resize", updateStageSize);
       console.log("Succesfully added event listener for resizing")
+
+      console.log("Now adding event listeners for tools")
+
+      viewerRef.current.addHandler("canvas-click", handleOSDEvent('click'));
+      viewerRef.current.addHandler("canvas-drag", handleOSDEvent('drag'));
+      viewerRef.current.addHandler("canvas-double-click", handleOSDEvent('double-click'));
+      viewerRef.current.addHandler("canvas-drag-end", handleOSDEvent('drag-end'));
+      
+      //we can get modifier already, but i guess if we wanted a hotkey
+      //viewerRef.current.addHandler("canvas-key", handleOSDkeyEvent('canvas-key'));
+
     }
     return () => {
     }
@@ -936,7 +941,19 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
       width:"100%",
       height:"100%"
       }}>
-      
+
+      {/* <div    checking to see if event position matches viewport position
+        ref={indicatorRef}
+        style={{
+          position: "relative",
+          left: "0%",
+          top: "95%",
+          width: "10px",
+          height: "10px",
+          backgroundColor: "blue",
+        }}
+      /> */}
+
         {/* {originOffsetRef.current && <>
         <div style={{ position: "absolute", left: 0, top: 0, width: "5%", height: "5%", backgroundColor: "purple" }} />
         <div style={{ position: "absolute", left: "95%", top: 0, width: "5%", height: "5%", backgroundColor: "green" }} />
@@ -946,8 +963,8 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
         
       <div id="visible-offset" ref={visibleOffsetRef}
         style={{
-        // zIndex: 1000,
-        // pointerEvents: 'none',
+        zIndex: 1015,
+        pointerEvents: 'auto',
         width:"100%",
         height:"100%"
       }}>
@@ -980,16 +997,17 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
           item.setStageRef(ref);
           }}
           className={[item.styles?.['image-element'], ...imagePositionClassnames].join(' ')}
-        width={1}
-        height={1}
+        width={10}
+        height={10}
         // x={0}
         // y={0}
         // scaleX={1}
         // scaleY={1}
-        onClick={handleEvent('click')}
-        onMouseDown={handleEvent('mousedown')}
-        onMouseMove={handleEvent('mousemove')}
-        onMouseUp={handleEvent('mouseup')}
+        //these are now handled by openseadragon
+        // onClick={handleCanvasEvent('click')}
+        // onMouseDown={handleCanvasEvent('mousedown')}
+        // onMouseMove={handleCanvasEvent('mousemove')}
+        // onMouseUp={handleCanvasEvent('mouseup')}
         >
         
         <StageContent item={item} store={store} state={state} crosshairRef={crosshairRef} />

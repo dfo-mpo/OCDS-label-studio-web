@@ -31,7 +31,9 @@ const DrawingTool = types
         return {};
       },
       isIncorrectControl() {
-        return self.tagTypes.stateTypes === self.control.type && !self.control.isSelected;
+        const sameType = self.tagTypes.stateTypes === self.control.type
+        const isSelected = self.control.isSelected
+        return sameType && !isSelected;
       },
       isIncorrectLabel() {
         return !self.obj.checkLabels();
@@ -76,8 +78,8 @@ const DrawingTool = types
        */
       isAllowedInteraction(ev) {
         if (self.group !== "segmentation") return true;
-        if (ev.offsetX > self.obj.canvasSize.width) return false;
         if (ev.offsetY > self.obj.canvasSize.height) return false;
+        if (ev.offsetX > self.obj.canvasSize.width) return false;
         return true;
       },
     };
@@ -106,6 +108,9 @@ const DrawingTool = types
             if (typeof self[fn] !== "undefined") self[fn].call(self, ev, [x, y], [canvasX, canvasY]);
           }
           lastClick = { ts, x, y };
+        }
+        if(name==="doubleclick"){
+          if (typeof self["dblclickEv"] !== "undefined") self["dblclickEv"].call(self, ev, [x, y], [canvasX, canvasY]);
         }
       },
 
@@ -327,8 +332,10 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
       },
 
       clickEv(ev, [x, y]) {
-        if (!self.canStartDrawing()) return;
-        if (!self.isAllowedInteraction(ev)) return;
+        const canStart =!self.canStartDrawing() 
+        const isAllowed =(!self.isAllowedInteraction(ev)) 
+        if (canStart) return;
+        if (isAllowed) return;
         // @todo: here is a potential problem with endPoint
         // it may be incorrect due to it may be not set at this moment
         if (startPoint && endPoint && !self.comparePointsWithThreshold(startPoint, endPoint)) return;
@@ -342,9 +349,13 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
         }
       },
 
-      dblclickEv(ev, [x, y]) {
-        if (!self.canStartDrawing()) return;
-        if (!self.isAllowedInteraction(ev)) return;
+      //javascript does not force arity, ie you can call a function with more arguments and it wont care
+      //
+      dblclickEv(ev, [x, y], [canvasX, canvasY]) {
+        const canStart =!self.canStartDrawing() 
+        const isAllowed =(!self.isAllowedInteraction(ev)) 
+        if (canStart) return;
+        if (isAllowed) return;
 
         let dX = self.defaultDimensions.width;
         let dY = self.defaultDimensions.height;
