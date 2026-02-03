@@ -13,7 +13,7 @@ import Constants from "../../../core/Constants";
 import { Component, createRef, forwardRef, Fragment, memo, useEffect, useRef, useState } from "react";
 import { observer, useObserver } from "mobx-react";
 import { getEnv, getRoot, isAlive } from "mobx-state-tree";
-import { reaction } from "mobx";
+import { reaction, observable, autorun } from "mobx";
 import OpenSeadragon from "openseadragon";
 import { Group, Layer, Line, Rect, Stage } from "react-konva";
 import ImageGrid from "../../../components/ImageGrid/ImageGrid";
@@ -35,11 +35,23 @@ import { clamp } from "lodash";
 const splitRegions = (regions) => {
   const brushRegions = [];
   const shapeRegions = [];
-  for (const region of regions) {
-    if (region.type === "brushregion") brushRegions.push(region);
-    else shapeRegions.push(region);
+  const l = regions.length;
+  let i = 0;
+
+  for (i; i < l; i++) {
+    const region = regions[i];
+
+    if (region.type === "brushregion") {
+      brushRegions.push(region);
+    } else {
+      shapeRegions.push(region);
+    }
   }
-  return { brushRegions, shapeRegions };
+
+  return {
+    brushRegions,
+    shapeRegions,
+  };
 };
 
 const Region = memo(({ region, showSelected = false }) => {
@@ -52,7 +64,7 @@ const RegionsLayer = memo(({ regions, name, useLayers, showSelected = false }) =
   return useLayers === false ? content : <Layer name={name}>{content}</Layer>;
 });
 
-const Regions = memo(({ regions, useLayers = true, chunkSize = 50000, suggestion = false, showSelected = false }) => {
+const Regions = memo(({ regions, useLayers = true, chunkSize = 15, suggestion = false, showSelected = false }) => {
   return (
     <ImageViewProvider value={{ suggestion }}>
       {(chunkSize ? chunks(regions, chunkSize) : regions).map((chunk, i) => (
@@ -70,25 +82,13 @@ const Regions = memo(({ regions, useLayers = true, chunkSize = 50000, suggestion
 
 const DrawingRegion = observer(({ item }) => {
   const { drawingRegion } = item;
+
   if (!drawingRegion) return null;
   if (item.multiImage && item.currentImage !== drawingRegion.item_index) return null;
 
-  return (
-    <div
-      // Inline fallback for styles.drawingRegion
-      style={{
-        position: "absolute",
-        pointerEvents: "none",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        zIndex: 1005,
-      }}
-    >
-      {drawingRegion ? <Region key={"drawing"} region={drawingRegion} /> : null}
-    </div>
-  );
+  const Wrapper = drawingRegion && drawingRegion.type === "brushregion" ? Fragment : Layer;
+
+  return <Wrapper>{drawingRegion ? <Region key={"drawing"} region={drawingRegion} /> : drawingRegion}</Wrapper>;
 });
 
 const SELECTION_COLOR = "#40A9FF";
@@ -114,7 +114,7 @@ const SelectionRect = observer(({ item }) => {
   };
 
   return (
-    <>
+    <Layer>
       <Rect {...positionProps} stroke={SELECTION_COLOR} dash={SELECTION_DASH} strokeScaleEnabled={false} />
       <Rect
         {...positionProps}
@@ -123,7 +123,7 @@ const SelectionRect = observer(({ item }) => {
         dashOffset={SELECTION_DASH[0]}
         strokeScaleEnabled={false}
       />
-    </>
+    </Layer>
   );
 });
 
@@ -258,88 +258,6 @@ const Selection = observer(({ item }) => {
   );
 });
 
-const Crosshair = memo(
-  forwardRef(({ width, height }, ref) => {
-    const [x, setX] = useState(100);
-    const [y, setY] = useState(50);
-    const [visible, setVisible] = useState(false);
-
-    if (ref) {
-      ref.current = {
-        updatePointer(newX, newY) {
-          setX(newX);
-          setY(newY);
-        },
-        updateVisibility(visibility) {
-          setVisible(visibility);
-        },
-      };
-    }
-
-    if (!visible) return null;
-
-    return (
-      <div
-        style={{
-          opacity: 0.6,
-          pointerEvents: "none",
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          zIndex: 999,
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: y,
-            width: "100%",
-            height: "1px",
-            background: "#fff",
-            borderTop: "1px dashed #000",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            left: x,
-            top: 0,
-            width: "1px",
-            height: "100%",
-            background: "#fff",
-            borderLeft: "1px dashed #000",
-          }}
-        />
-      </div>
-    );
-  })
-);
-
-const GridOverlay = observer(({ item }) => {
-  if (!item.grid || !item.sizeUpdated) return null;
-
-  return (
-    <div id="grid-overlay"
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        backgroundImage: `
-          linear-gradient(to right, ${item.gridcolor}15 1px, transparent 1px),
-          linear-gradient(to bottom, ${item.gridcolor}15 1px, transparent 1px)
-        `,
-        backgroundSize: `${item.gridsize}px ${item.gridsize}px`,
-        pointerEvents: "none",
-        zIndex: 1001,
-      }}
-    />
-  );
-});
 /*
  * Component that creates an overlay on top
  * of the image to support Magic Wand tool
@@ -412,7 +330,7 @@ export default observer(
           scrollToZoom: true,
         },
       });
-      
+
       //seadragon tools now work over the stage! :D
 
       if (viewer.controls) {
@@ -422,6 +340,7 @@ export default observer(
           viewer.controls[i].wrapper.style.zIndex = '1016';
         }
       }
+
       // if(viewer.canvas){
       //   viewer.canvas.style.zIndex='1001';
       // }
@@ -439,6 +358,8 @@ export default observer(
       // };
 
       this.viewerRef.current = viewer;
+
+      item.setViewer(this.viewerRef.current);
 
       this.setupEventHandlers();
     };
@@ -618,6 +539,7 @@ export default observer(
 
               <Selection item={item} />
               <DrawingRegion item={item} />
+
               {item.crosshair && (
                 <Crosshair
                   ref={this.crosshairRef}
@@ -758,6 +680,20 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
       }
   },[viewerRef.current, originOffsetRef.current])
   
+  //disable panning when trying to draw an annotation
+  useEffect(() => {
+      if (!viewerRef.current) return;
+
+      // MobX autorun will react to any observable used inside
+      const disposer = autorun(() => {
+        const hasActiveStates = item.activeStates().length > 0;
+        viewerRef.current.gestureSettingsMouse.dragToPan = !hasActiveStates;
+      });
+
+      // cleanup when component unmounts
+      return () => disposer();
+  }, [item, viewerRef]);
+
   // if (dragonDefined) {
   //   const viewport = viewerRef.current.viewport;
   //   const topLeft = viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0));
@@ -774,7 +710,12 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
     //Normalize mouse position to [0, 1] in stage space
     // const nx = e.evt.offsetX / canvas_width.current;
     // const ny = e.evt.offsetY / canvas_height.current;
-    
+
+    if (!canvas_width.current || !canvas_height.current || !brBound.current || !tlBound.current) {
+      updateStageSize()
+      //throw new Error("updateStageSize has not been called yet, references are null");
+    }
+
     const nx = canvasX / canvas_width.current;
     const ny = canvasY / canvas_height.current;
     
@@ -790,36 +731,46 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   }
 
 
-  const handleOSDkeyEvent = (type) => (e) => {
-    console.log("Key event: ",e)
-  }
+  // const handleEvent = (type) => (e) => {
+  //   //console.log("Regular event: ",e)
+  //   const viewport = viewerRef.current.viewport;
+  //   //const viewportPos = viewport.windowToViewportCoordinates(new OpenSeadragon.Point(e.offsetX, e.offsetY))
+  //   const g = {x: e.offsetX/e.target.offsetWidth, y: e.offsetY/e.target.offsetHeight}
+  //   //console.log("Viewport pos: ",viewportPos)
+  //   console.log("g pos: ",g, e.target)
+    
+  //   item.event(type, e, g.x, g.y);//this goes to image.js 
+  // }
 
-  const handleOSDEvent = (type) => (e) => {
-    const viewport = viewerRef.current.viewport;
-    const viewportPos = viewport.pointFromPixel(e.position)
-    //outside of image
-    if(viewportPos.x < 0 || viewportPos.y < 0 || viewportPos.x > 1 || viewportPos.y > 1){
+  const handleStageMouseMove = (type) => (e) => {
+
+    const isStage = e.target?.constructor.name === "Stage" 
+
+    if(!isStage){
       return
     }
-    console.log("Viewport pos: ",viewportPos, " Event: ",e)
-    item.updateCanvasSize(viewerRef.current.canvas.offsetWidth,viewerRef.current.canvas.offsetHeight) 
-
-    if(type=="doubleclick"){//because LS cant deal with double clicks apparently?
-      item.event("dblclick", e.originalEvent, viewportPos.x, viewportPos.y);//this goes to image.js 
-v   }
-    item.event(type, e.originalEvent, viewportPos.x, viewportPos.y);//this goes to image.js 
-
-    if(e.originalEvent.shiftKey){
-      if(type=="drag"){
-        console.log("Shift + dragging")
-      }
-      if(type=="click"){
-        console.log("shift click")
-      }
-      if(type=="double-click"){
-        console.log("Shift double click")
-      }
+      const viewportPos = canvasToInternal(e.evt.offsetX, e.evt.offsetY)
+      console.log("viewportPos: ",viewportPos)
+      item.updateCanvasSize(viewerRef.current.canvas.offsetWidth,viewerRef.current.canvas.offsetHeight) 
+      item.event(type, e, viewportPos.x, viewportPos.y);//this goes to image.js 
     }
+    
+    const handleOSDEvent = (type) => (e) => {
+      const viewport = viewerRef.current.viewport;
+      const viewportPos = viewport.pointFromPixel(e.position)
+      //outside of image
+      if(viewportPos.x < 0 || viewportPos.y < 0 || viewportPos.x > 1 || viewportPos.y > 1){
+        return
+      }
+      // updateStageSize()
+      //console.log("Viewport pos: ",viewportPos, " Event: ",e)
+      item.updateCanvasSize(viewerRef.current.canvas.offsetWidth,viewerRef.current.canvas.offsetHeight) 
+      if(type !== "mousemove"){
+        console.log("Non mouse move: ", type)
+      }
+      item.event(type, e.originalEvent, viewportPos.x, viewportPos.y);//this goes to image.js 
+      
+    //if(e.originalEvent.shiftKey){
 
   };
 
@@ -920,11 +871,23 @@ v   }
 
       console.log("Now adding event listeners for tools")
 
-      viewerRef.current.addHandler("canvas-click", handleOSDEvent('click'));
-      viewerRef.current.addHandler("canvas-drag", handleOSDEvent('drag'));
-      viewerRef.current.addHandler("canvas-double-click", handleOSDEvent('double-click'));
-      viewerRef.current.addHandler("canvas-drag-end", handleOSDEvent('drag-end'));
+      // viewerRef.current.addHandler("canvas-click", handleOSDEvent('click'));
+      // viewerRef.current.addHandler("canvas-drag", handleOSDEvent('drag'));
+      // viewerRef.current.addHandler("canvas-double-click", handleOSDEvent('double-click'));
+      // viewerRef.current.addHandler("canvas-drag-end", handleOSDEvent('drag-end'));
+
+      // viewerRef.current.canvas.addEventListener("click", handleEvent("click"))
+      // viewerRef.current.canvas.addEventListener("mousemove", handleEvent("mousemove"))
+      // viewerRef.current.canvas.addEventListener("mousedown", handleEvent("mousedown"))
+      // viewerRef.current.canvas.addEventListener("mouseup", handleEvent("mouseup"))
+      // viewerRef.current.canvas.addEventListener("dblclick", handleEvent("dblclick"))
       
+      viewerRef.current.addHandler("canvas-move", handleOSDEvent('mousemove'));//move without mouse down
+      viewerRef.current.addHandler("canvas-drag", handleOSDEvent('mousemove'));//move while mouse down
+      viewerRef.current.addHandler("canvas-press", handleOSDEvent('mousedown'));
+      viewerRef.current.addHandler("canvas-release", handleOSDEvent('mouseup'));
+      viewerRef.current.addHandler("canvas-click", handleOSDEvent("click"));
+
       //we can get modifier already, but i guess if we wanted a hotkey
       //viewerRef.current.addHandler("canvas-key", handleOSDkeyEvent('canvas-key'));
 
@@ -937,31 +900,10 @@ v   }
     <div id="EntireStage">
       
       <div id="origin-offset" ref={originOffsetRef} style={{
-      // zIndex: 1000,
-      // pointerEvents: 'none',
       width:"100%",
       height:"100%"
       }}>
 
-      {/* <div    checking to see if event position matches viewport position
-        ref={indicatorRef}
-        style={{
-          position: "relative",
-          left: "0%",
-          top: "95%",
-          width: "10px",
-          height: "10px",
-          backgroundColor: "blue",
-        }}
-      /> */}
-
-        {/* {originOffsetRef.current && <>
-        <div style={{ position: "absolute", left: 0, top: 0, width: "5%", height: "5%", backgroundColor: "purple" }} />
-        <div style={{ position: "absolute", left: "95%", top: 0, width: "5%", height: "5%", backgroundColor: "green" }} />
-        <div style={{ position: "absolute", left: 0, top: "95%", width: "5%", height: "5%", backgroundColor: "blue" }} />
-        <div style={{ position: "absolute", left: "95%", top: "95%", width: "5%", height: "5%", backgroundColor: "yellow" }} />
-        </>} */}
-        
       <div id="visible-offset" ref={visibleOffsetRef}
         style={{
         zIndex: 1015,
@@ -969,156 +911,89 @@ v   }
         width:"100%",
         height:"100%"
       }}>
-{/* 
-        <div style={{ position: "absolute", left: 0, top: 0, width: "10px", height: "10px", backgroundColor: "red", border: "1px solid green", boxsizing:"border-box"}} /> */}
-{/* 
-        <GridOverlay item={item} /> */}
 
-      {/* <CanvasOverlay item={item} /> */}
 
-      {/* {originOffsetRef.current && 
-      <Stage ref={stageRef} width={100} height={100}>
-        <Layer>
-        <Rect
-          x={45}
-          y={45}
-          width={10}
-          height={10}
-          stroke="black"
-          strokeWidth={1}
-          fillEnabled={false}
-          />
-          <Rect x={95} y={95} width={5} height={5} fill="white" />
-        </Layer>
-      </Stage>} */}
-      
+
       <Stage
       ref={(ref) => {
           stageRef.current = ref;     
           item.setStageRef(ref);
           }}
           className={[item.styles?.['image-element'], ...imagePositionClassnames].join(' ')}
-        width={10}
-        height={10}
-        // x={0}
-        // y={0}
-        // scaleX={1}
-        // scaleY={1}
-        //these are now handled by openseadragon
-        // onClick={handleCanvasEvent('click')}
-        // onMouseDown={handleCanvasEvent('mousedown')}
-        // onMouseMove={handleCanvasEvent('mousemove')}
-        // onMouseUp={handleCanvasEvent('mouseup')}
+        width={100}
+        height={100}
+
+        onMouseMove={handleStageMouseMove('mousemove')}
         >
-        
+        {/*         
+         */}
         <StageContent item={item} store={store} state={state} crosshairRef={crosshairRef} />
-        
-        </Stage>
+      </Stage>
 
         {/*
       */}
     </div>{/*visible div*/}
   </div>{/*offset div*/}
-    
-    {/* {!originOffsetRef.current && 
-    <div style={{ color: "red", fontSize: "14px" }}>No origin offset!</div>
-    }
-    {!viewerRef.current && 
-    <div style={{ color: "red", fontSize: "14px" }}>No viewer!</div>
-    }
-    {!stageRef.current && 
-    <div style={{ color: "red", fontSize: "14px" }}>No stage!</div>
-    }
-    { 
-    <div style={{ color: "red", fontSize: "14px" }}>Hotel: Trivago!</div>
-    } */}
     </div>//entire stage
   );
 });
 
+// import { observer } from "mobx-react";
+// import { Layer, Rect } from "react-konva";
 
-// const TRANSFORMER_BACK_ID = "transformer_back";
+/**
+ * Create a cached 1-cell grid pattern for Konva.
+ * This is recreated only when gridsize or color changes.
+ */
+const makeGridPattern = (gridSize, color) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = gridSize;
+  canvas.height = gridSize;
 
-// const TransformerBack = observer(({ item }) => {
-//   const { selectedRegionsBBox } = item;
-//   const singleNodeMode = item.selectedRegions.length === 1;
-//   const dragStartPointRef = useRef({ x: 0, y: 0 });
+  const ctx = canvas.getContext("2d");
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.0;
 
-//   return (
-//     <Layer>
-//       {selectedRegionsBBox && !singleNodeMode && (
-//         <Rect
-//           id={TRANSFORMER_BACK_ID}
-//           fill="rgba(0,0,0,0)"
-//           draggable
-//           onClick={() => {
-//             item.annotation.unselectAreas();
-//           }}
-//           onMouseOver={(ev) => {
-//             if (!item.annotation.isLinkingMode) {
-//               //ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
+  ctx.beginPath();
+  ctx.rect(0, 0, gridSize, gridSize);
+  ctx.stroke();
 
-//               if (typeof ev.target.getStage().container() === "function") {
-//                 ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
-//               }
-//               else{
-//                 ev.target.getStage().container.style.cursor = Constants.POINTER_CURSOR;
-//               }
-//             }
-//           }}
-//           onMouseOut={(ev) => {
-//             ev.target.getStage().container().style.cursor = Constants.DEFAULT_CURSOR;
-//           }}
-//           onDragStart={(e) => {
-//             dragStartPointRef.current = {
-//               x: item.canvasToInternalX(e.target.getAttr("x")),
-//               y: item.canvasToInternalY(e.target.getAttr("y")),
-//             };
-//           }}
-//           dragBoundFunc={(pos) => {
-//             let { x, y } = pos;
-//             const { top, left, right, bottom } = item.selectedRegionsBBox;
-//             const { stageHeight, stageWidth } = item;
+  return canvas;
+};
 
-//             const offset = {
-//               x: dragStartPointRef.current.x - left,
-//               y: dragStartPointRef.current.y - top,
-//             };
+export const GridOverlay = observer(({ item }) => {
+  // Guard — same semantics as the original ImageGrid
+  if (!item.stageWidth || !item.stageHeight || !item.gridsize) return null;
 
-//             x -= offset.x;
-//             y -= offset.y;
+  const patternImage = makeGridPattern(item.gridsize, item.gridcolor);
 
-//             const bbox = { x, y, width: right - left, height: bottom - top };
+  const upscale_factor = 30
 
-//             const fixed = fixRectToFit(bbox, stageWidth, stageHeight);
+  return (
+    <Layer
+      name="ruler"
+      opacity={0.5}
+      listening={false}
+      perfectDrawEnabled={false}
+    >
+      <Rect
+        x={0}
+        y={0}
+        width={item.stageWidth*upscale_factor}
+        height={item.stageHeight*upscale_factor}
+        fillPatternImage={patternImage}
+        fillPatternScale={{ x: 1/upscale_factor, y: 1/upscale_factor }}
+        shadowForStrokeEnabled={false}
+      />
+    </Layer>
+  );
+});
 
-//             if (fixed.width !== bbox.width) {
-//               x += (fixed.width - bbox.width) * (fixed.x !== bbox.x ? -1 : 1);
-//             }
-
-//             if (fixed.height !== bbox.height) {
-//               y += (fixed.height - bbox.height) * (fixed.y !== bbox.y ? -1 : 1);
-//             }
-
-//             x += offset.x;
-//             y += offset.y;
-//             return { x, y };
-//           }}
-//         />
-//       )}
-//     </Layer>
-//   );
-// });
 
 const StageContent = observer(({ item, store, state, crosshairRef }) => {
-  if (!isAlive(item)) {
-    console.log("Not alive?")
-    return null;
-  }
-  if (!store.task || !item.currentSrc) {
-    console.log("No task or no source")
-    return null;
-  }
+  if (!isAlive(item)) return null;
+  if (!store.task || !item.currentSrc) return null;
+
   const regions = item.regs;
   const paginationEnabled = !!item.isMultiItem;
   const wrapperClasses = [styles.wrapperComponent, item.images.length > 1 ? styles.withGallery : styles.wrapper];
@@ -1136,12 +1011,6 @@ const StageContent = observer(({ item, store, state, crosshairRef }) => {
     suggestedShape: suggestedShapeRegions,
   });
 
-  // const imageTopLeft = item.viewerRef.current.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0));
-  // const imageBottomRight = item.viewerRef.current.viewport.pixelFromPoint(new OpenSeadragon.Point(1, 1));
-
-  // const width = imageBottomRight.x - imageTopLeft.x 
-  // const height = imageBottomRight.y- imageTopLeft.y 
-
   return (
     <>
       {/* Hack to keep stage in place when there's no regions */}
@@ -1150,10 +1019,14 @@ const StageContent = observer(({ item, store, state, crosshairRef }) => {
           <Line points={[0, 0, 0, 1]} stroke="rgba(0,0,0,0)" />
         </Layer>
       )}
-
-      {/*
-      {isFF(FF_LSDV_4930) ? <TransformerBack item={item} /> : null}
+        {/*       
+      {item.grid && item.sizeUpdated && <ImageGrid item={item} />} 
       */}
+
+      {/* A more efficient grid overlay so it can handle 40k by 40k images  */}
+      {item.grid && item.sizeUpdated && <GridOverlay item={item} />}
+
+      {false ? <TransformerBack item={item} /> : null}
 
       {renderableRegions.map(([groupName, list]) => {
         const isBrush = groupName.match(/brush/i) !== null;
@@ -1164,26 +1037,23 @@ const StageContent = observer(({ item, store, state, crosshairRef }) => {
             key={groupName}
             name={groupName}
             regions={list}
-            useLayers={true}
+            useLayers={isBrush === false}
             suggestion={isSuggestion}
           />
         ) : (
           <Fragment key={groupName} />
         );
-        })
-      }
-      {/*
-      */}
+      })}
       <Selection item={item} isPanning={state.isPanning} />
       <DrawingRegion item={item} />
 
-       {item.crosshair && (
+      {item.crosshair && (
         <Crosshair
           ref={crosshairRef}
           width={isFF(FF_ZOOM_OPTIM) ? item.containerWidth : item.stageWidth}
           height={isFF(FF_ZOOM_OPTIM) ? item.containerHeight : item.stageHeight}
         />
-        )}
+      )}
     </>
   );
 });

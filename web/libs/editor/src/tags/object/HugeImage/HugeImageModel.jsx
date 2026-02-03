@@ -33,11 +33,14 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
     homeZoom: 1,
     _canvasWidth: 1,
     _canvasHeight: 1,
-
+    
     // override default rect size
     defaultrectheight: types.optional(types.string, "1.0"),
     defaultrectwidth: types.optional(types.string, "1.0"),
   })
+  .volatile(() => ({
+    viewer: null,
+  }))
   .actions((self) => ({
 
     //override canvas-internal transformations
@@ -247,6 +250,10 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
       self.homeZoom = homeZoom;
     },
 
+    setViewer(viewer) {
+      self._viewer = viewer;
+    },
+    
     updateCanvasSize(width, height){
       self._canvasWidth = width
       self._canvasHeight = height
@@ -307,6 +314,8 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
   }))
   .views((self) => ({
 
+
+
     //override canvasSize
     //why is the function for getting the canvas size even on the model side?
     //it has no idea what rendering looks like
@@ -336,8 +345,11 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
       //     ? self.naturalHeight * self.stageZoomY
       //     : Math.round(self.naturalHeight * self.stageZoomY),
       // };
-    }
+    },
 
+    get viewer() {
+      return self._viewer;
+    },
   }));
 
 // Inject store into your view
