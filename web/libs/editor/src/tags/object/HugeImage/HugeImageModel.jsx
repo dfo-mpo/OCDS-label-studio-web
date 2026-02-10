@@ -37,11 +37,26 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
     // override default rect size
     defaultrectheight: types.optional(types.string, "1.0"),
     defaultrectwidth: types.optional(types.string, "1.0"),
+    zoomcontrol: types.optional(types.boolean, false),
   })
   .volatile(() => ({
     viewer: null,
+    stageRef: null,
   }))
   .actions((self) => ({
+
+    //override setStage
+
+    setStageRef(ref) {
+      
+      if(ref == null){
+        console.log("ref null")
+      }
+      self.stageRef = ref;
+      const currentTool = self.getToolsManager().findSelectedTool();
+
+      currentTool?.updateCursor?.();
+    },
 
     //override canvas-internal transformations
     canvasToInternalX(n) {
@@ -73,64 +88,25 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
 
     // Override parent setZoom - must be defined first
     setZoom(scale) {
-      scale = clamp(scale, 1, Number.POSITIVE_INFINITY);
-      self.currentZoom = scale;
-
-      const maxScale = self.maxScale;
-      const coverScale = self.coverScale;
-
-      if (maxScale > 1) {
-        // image > container
-        if (scale < maxScale) {
-          self.stageZoom = scale;
-          self.zoomScale = 1;
-        } else {
-          self.stageZoom = maxScale;
-          self.zoomScale = scale / maxScale;
-        }
-      } else {
-        // image < container
-        if (scale > maxScale) {
-          self.stageZoom = maxScale;
-          self.zoomScale = scale;
-        } else {
-          self.stageZoom = scale;
-          self.zoomScale = 1;
-        }
-      }
-
-      //this is used for getting canvassize and thats it
-      //but it looks like its needed for making seadragon the right size
-      //and the canvas the right size
-      if (self.zoomScale > 1) {
-        const z = Math.min(maxScale * self.zoomScale, coverScale);
-
-        if (self.containerWidth / self.naturalWidth > self.containerHeight / self.naturalHeight) {
-          self.stageZoomX = z;
-          self.stageZoomY = self.stageZoom;
-        } else {
-          self.stageZoomX = self.stageZoom;
-          self.stageZoomY = z;
-        }
-      } else {
-        self.stageZoomX = self.stageZoom;
-        self.stageZoomY = self.stageZoom;
-      }
+      //i dont see stageZoom being used by anything other than Image.js
+      //so the region code must be zoomScale
+      
+      self.zoomScale = 0.1
     },
 
     setZoomPosition(x, y) {
       //console.log("Set zoom position")
-      const [width, height] = isFF(FF_DEV_3377)
-        ? [self.canvasSize.width, self.canvasSize.height]
-        : [self.containerWidth, self.containerHeight];
+      // const [width, height] = isFF(FF_DEV_3377)
+      //   ? [self.canvasSize.width, self.canvasSize.height]
+      //   : [self.containerWidth, self.containerHeight];
 
-      const [minX, minY] = [
-        width - self.stageComponentSize.width * self.zoomScale,
-        height - self.stageComponentSize.height * self.zoomScale,
-      ];
+      // const [minX, minY] = [
+      //   width - self.stageComponentSize.width * self.zoomScale,
+      //   height - self.stageComponentSize.height * self.zoomScale,
+      // ];
 
-      self.zoomingPositionX = clamp(x, minX, 0);
-      self.zoomingPositionY = clamp(y, minY, 0);
+      // self.zoomingPositionX = clamp(x, minX, 0);
+      // self.zoomingPositionY = clamp(y, minY, 0);
     },
 
     resetZoomPositionToCenter() {
@@ -244,12 +220,6 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
       }
     },
 
-    setZoomLimits({ minZoom, maxZoom, homeZoom }) {
-      self.minZoom = minZoom;
-      self.maxZoom = maxZoom;
-      self.homeZoom = homeZoom;
-    },
-
     setViewer(viewer) {
       self._viewer = viewer;
     },
@@ -272,7 +242,7 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
 
       // Add standard image tools
       if (self.selectionControl) manager.addTool("MoveTool", Tools.Selection.create({}, env), "MoveTool");
-      if (self.zoomControl) manager.addTool("ZoomPanTool", Tools.Zoom.create({}, env), "ZoomPanTool");
+      //if (self.zoomControl) manager.addTool("ZoomPanTool", Tools.Zoom.create({}, env), "ZoomPanTool");
       if (self.brightnessControl) manager.addTool("BrightnessTool", Tools.Brightness.create({}, env), "BrightnessTool");
       if (self.contrastControl) manager.addTool("ContrastTool", Tools.Contrast.create({}, env), "ContrastTool");
       if (self.saturationControl) manager.addTool("SaturationTool", Tools.Saturation.create({}, env), "SaturationTool");
@@ -349,6 +319,42 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
 
     get viewer() {
       return self._viewer;
+    },
+
+    //override this function
+    //its for finding if a region is visible
+    //it computes its bounding box, then the viewport bounding box
+    //it looks like onva region  inViewport is the only thing that uses the function
+    get viewPortBBoxCoords() {
+      let width = self.canvasSize.width / self.zoomScale;
+      let height = self.canvasSize.height / self.zoomScale;
+      const leftOffset = -self.zoomingPositionX / self.zoomScale;
+      const topOffset = -self.zoomingPositionY / self.zoomScale;
+      const rightOffset = self.stageComponentSize.width - (leftOffset + width);
+      const bottomOffset = self.stageComponentSize.height - (topOffset + height);
+      const offsets = [leftOffset, topOffset, rightOffset, bottomOffset];
+
+      if (self.isSideways) {
+        [width, height] = [height, width];
+      }
+      if (self.rotation) {
+        const rotateCount = (self.rotation / 90) % 4;
+
+        for (let k = 0; k < rotateCount; k++) {
+          offsets.push(offsets.shift());
+        }
+      }
+      const left = offsets[0];
+      const top = offsets[1];
+
+      return {
+        left,
+        top,
+        right: left + width,
+        bottom: top + height,
+        width,
+        height,
+      };
     },
   }));
 

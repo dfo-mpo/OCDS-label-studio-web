@@ -10,8 +10,7 @@ import { ImageViewProvider } from "../../../components/ImageView/ImageViewContex
 import ResizeObserver from "../../../utils/resize-observer";
 import { debounce } from "../../../utils/debounce";
 import Constants from "../../../core/Constants";
-import { Component, createRef, forwardRef, Fragment, memo, useEffect, useRef, useState } from "react";
-import { observer, useObserver } from "mobx-react";
+import { Component, createRef, forwardRef, Fragment, memo, useEffect, useRef, useState, useCallback } from "react";import { observer, useObserver } from "mobx-react";
 import { getEnv, getRoot, isAlive } from "mobx-state-tree";
 import { reaction, observable, autorun } from "mobx";
 import OpenSeadragon from "openseadragon";
@@ -297,10 +296,9 @@ export default observer(
       const { item } = this.props;
       const containerId = `openseadragon-${item.name}`;
 
-      if (this.viewerRef.current) {
-        this.viewerRef.current.destroy();
-      }
-
+      // if (this.viewerRef.current) {
+      //   this.viewerRef.current.destroy();
+      // }
       
       const viewer = OpenSeadragon({
         id: containerId,
@@ -526,7 +524,6 @@ export default observer(
                 zIndex:900
               }}
               >
-                {}
                 {/*add code for if not loaded show loading thing instead*/}
               {<EntireStage
                 item={item}
@@ -581,46 +578,6 @@ export default observer(
         </ObjectTag>
       )
     }
-
-    //KONVA COMPATIBILITY FOR LABEL STUDIO
-
-    // //so zoom.jsx doesnt break
-    // container() {
-    //   // Return the OSD container DOM node by id or ref
-    //   console.log("Called container placeholder")
-    //   return document.getElementById(`openseadragon-${this.props.item.name}`);
-    // }
-
-    // setCursor(cursor) {
-    //   console.log("Called cursor placeholder")
-    //   const container = this.container();
-    //   if (container) container.style.cursor = cursor;
-    // }
-
-    //i think this has to go in the model
-
-    // handleZoom(val) {
-    //   console.log("Called seadragon handle zoom")
-    //   if(this.viewerRef){
-    //     if (this.viewerRef.current) {
-    //       const vp = this.viewerRef.current.viewport;
-    //       vp.zoomTo(vp.getZoom() + val * 0.2); // Adjust step size as needed
-    //     }
-    //   }
-
-    // sizeToFit() {
-    //   console.log("Called size to fit")
-    //   if (this.viewerRef.current) {
-    //     this.viewerRef.current.viewport.goHome();
-    //   }
-    // }
-
-    // sizeToOriginal() {
-    //   console.log("Called size to original")
-    //   if (this.viewerRef.current) {
-    //     this.viewerRef.current.viewport.zoomTo(1);
-    //   }
-    //}
   }
 );
 
@@ -641,7 +598,6 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   let originOffsetRef = useRef(null)
   let overlayAddedRef = useRef(false)
   let overlayRef = useRef(null)
-  let stageRef = useRef(null)
   let visibleOffsetRef = useRef(null)
   
   let viewport_width = useRef(0.0)
@@ -742,18 +698,35 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   //   item.event(type, e, g.x, g.y);//this goes to image.js 
   // }
 
-  const handleStageMouseMove = (type) => (e) => {
+  const handleStageEvent = (type) => (e) => {
 
     const isStage = e.target?.constructor.name === "Stage" 
+    const isRect = e.target?.constructor.name === "Stage" 
+    
+    if(isRect){
+      if(type=="click"){
+          console.log("Clicked on rect: ",e.target)
+      }
+      console.log("Rect event: ",type)
+    }
 
-    if(!isStage){
-      return
+    //so if we add pointer-events: auto to the kanvas we do get mouse moves on rect
+    //its likely that the region error is just an event listener problem
+    //check the target of the handleOSDevent, its possible its a diffent object?
+    //like the origianl event?
+    //canvas could also work
+
+    if(isStage){
+
+      if(type=="mousemove"){
+
+        const viewportPos = canvasToInternal(e.evt.offsetX, e.evt.offsetY)
+        // console.log("viewportPos: ",viewportPos)
+        item.updateCanvasSize(viewerRef.current.canvas.offsetWidth,viewerRef.current.canvas.offsetHeight) 
+        item.event(type, e, viewportPos.x, viewportPos.y);//this goes to image.js 
+      }
     }
-      const viewportPos = canvasToInternal(e.evt.offsetX, e.evt.offsetY)
-      console.log("viewportPos: ",viewportPos)
-      item.updateCanvasSize(viewerRef.current.canvas.offsetWidth,viewerRef.current.canvas.offsetHeight) 
-      item.event(type, e, viewportPos.x, viewportPos.y);//this goes to image.js 
-    }
+  }
     
     const handleOSDEvent = (type) => (e) => {
       const viewport = viewerRef.current.viewport;
@@ -790,7 +763,7 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
 
       function updateStageSize() {
-        if ((!stageRef.current || !originOffsetRef.current || !viewerRef.current || !visibleOffsetRef.current)) return
+        if ((!item.stageRef || !originOffsetRef.current || !viewerRef.current || !visibleOffsetRef.current)) return
 
 
         // const rect = viewerRef.current.container.getBoundingClientRect()
@@ -825,8 +798,8 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
         canvas_height.current = bound_height_window
         canvas_width.current = bound_width_window
 
-        stageRef.current.width(bound_width_window);
-        stageRef.current.height(bound_height_window);
+        item.stageRef.width(bound_width_window);
+        item.stageRef.height(bound_height_window);
         const stage_content_internal_resolution = { x: 100, y: 100 }; // Stage point we want to reach bottom-right
 
         //this is normally STAGE_RELATIVE_HEIGHT in imageview/image.js
@@ -849,15 +822,13 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
         container.style.left = `${tlWindow.x-offset_pos.x}px`;
         container.style.top  = `${tlWindow.y-offset_pos.y}px`;
 
-        stageRef.current.scale({ x: scaleX, y: scaleY });
-        stageRef.current.position({ x: -scaleX* stage_content_internal_resolution.x*tlBound.current.x, y: -scaleY*stage_content_internal_resolution.y*tlBound.current.y }); // top-left corner as origin
-        stageRef.current.batchDraw();
-
+        item.stageRef.scale({ x: scaleX, y: scaleY });
+        item.stageRef.position({ x: -scaleX* stage_content_internal_resolution.x*tlBound.current.x, y: -scaleY*stage_content_internal_resolution.y*tlBound.current.y }); // top-left corner as origin
+        // item.stageRef.batchDraw();
       }
 
     // initial size
     updateStageSize();
-
 
   useEffect(() => {
     // resize listener
@@ -896,37 +867,43 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
     }
   }, [viewerRef.current]);
 
+  // const stageRefCallback = useCallback((ref) => {
+  //   if(ref == null){
+  //     console.log("What the heck")
+  //     item.setStageRef(item.stageRef);
+  //   }
+  //   else{
+  //     item.stageRef = ref;
+  //   }
+  // }, [item]);
+
   return (
     <div id="EntireStage">
       
       <div id="origin-offset" ref={originOffsetRef} style={{
-      width:"100%",
-      height:"100%"
       }}>
 
       <div id="visible-offset" ref={visibleOffsetRef}
         style={{
         zIndex: 1015,
-        pointerEvents: 'auto',
-        width:"100%",
-        height:"100%"
+        pointerEvents: 'none',
       }}>
 
-
-
       <Stage
-      ref={(ref) => {
-          stageRef.current = ref;     
+        ref={(ref) => {
           item.setStageRef(ref);
-          }}
-          className={[item.styles?.['image-element'], ...imagePositionClassnames].join(' ')}
+        }}
+        className={[item.styles?.['image-element'], ...imagePositionClassnames].join(' ')}
         width={100}
         height={100}
-
-        onMouseMove={handleStageMouseMove('mousemove')}
+        style={{
+          zIndex:2000,
+          pointerEvents:"auto",
+        }}
+        onMouseMove={handleStageEvent('mousemove')}
+        onClick={handleStageEvent('click')}
         >
-        {/*         
-         */}
+
         <StageContent item={item} store={store} state={state} crosshairRef={crosshairRef} />
       </Stage>
 
