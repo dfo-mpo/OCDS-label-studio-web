@@ -304,6 +304,8 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
       },
 
       mousemoveEv(_, [x, y]) {
+        return
+        
         if (currentMode === DEFAULT_MODE && startPoint) {
           if (!self.comparePointsWithThreshold(startPoint, { x, y })) {
             currentMode = modeAfterMouseMove;

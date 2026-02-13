@@ -1,4 +1,3 @@
-
 import ObjectTag from "../../../components/Tags/Object";
 import Tree from "../../../core/Tree";
 import styles from "../../../components/ImageView/Image.scss";
@@ -10,14 +9,14 @@ import { ImageViewProvider } from "../../../components/ImageView/ImageViewContex
 import ResizeObserver from "../../../utils/resize-observer";
 import { debounce } from "../../../utils/debounce";
 import Constants from "../../../core/Constants";
-import { Component, createRef, forwardRef, Fragment, memo, useEffect, useRef, useState, useCallback } from "react";import { observer, useObserver } from "mobx-react";
+import { Component, createRef, forwardRef, Fragment, memo, useEffect, useRef, useState, useCallback } from "react";
+import { observer, useObserver } from "mobx-react";
 import { getEnv, getRoot, isAlive } from "mobx-state-tree";
 import { reaction, observable, autorun } from "mobx";
 import OpenSeadragon from "openseadragon";
 import { Group, Layer, Line, Rect, Stage } from "react-konva";
 import ImageGrid from "../../../components/ImageGrid/ImageGrid";
 import ImageTransformer from "../../../components/ImageTransformer/ImageTransformer.jsx";
-//web/libs/editor/src/components/ImageTransformer/ImageTransformer.jsx
 
 import {
   FF_DEV_1442,
@@ -30,6 +29,7 @@ import {
   isFF,
 } from "../../../utils/feature-flags";
 import { clamp } from "lodash";
+import { fixRectToFit } from "../../../utils/image";
 
 const splitRegions = (regions) => {
   const brushRegions = [];
@@ -58,9 +58,14 @@ const Region = memo(({ region, showSelected = false }) => {
 });
 
 const RegionsLayer = memo(({ regions, name, useLayers, showSelected = false }) => {
-  const content = regions.map((el) => <Region key={`region-${el.id}`} region={el} showSelected={showSelected} />);
-
-  return useLayers === false ? content : <Layer name={name}>{content}</Layer>;
+  if (!Array.isArray(regions)) {
+    console.log("What")
+    return null
+  }
+  else{
+    const content = regions.map((el) => <Region key={`region-${el.id}`} region={el} showSelected={showSelected} />);
+    return useLayers === false ? content : <Layer name={name}>{content}</Layer>;
+  }
 });
 
 const Regions = memo(({ regions, useLayers = true, chunkSize = 15, suggestion = false, showSelected = false }) => {
@@ -113,7 +118,7 @@ const SelectionRect = observer(({ item }) => {
   };
 
   return (
-    <Layer>
+    <>
       <Rect {...positionProps} stroke={SELECTION_COLOR} dash={SELECTION_DASH} strokeScaleEnabled={false} />
       <Rect
         {...positionProps}
@@ -122,7 +127,7 @@ const SelectionRect = observer(({ item }) => {
         dashOffset={SELECTION_DASH[0]}
         strokeScaleEnabled={false}
       />
-    </Layer>
+    </>
   );
 });
 
@@ -184,6 +189,95 @@ const SelectionBorders = observer(({ item, selectionArea }) => {
   );
 });
 
+const TRANSFORMER_BACK_ID = "transformer_back";
+
+const TransformerBack = observer(({ item }) => {
+  const { selectedRegionsBBox } = item;
+  const singleNodeMode = item.selectedRegions.length === 1;
+  const dragStartPointRef = useRef({ x: 0, y: 0 });
+
+  return (
+    <Layer>
+      {selectedRegionsBBox && !singleNodeMode && (
+        <Rect
+          id={TRANSFORMER_BACK_ID}
+          fill="rgba(0,0,0,0)"
+          draggable
+          onClick={() => {
+            item.annotation.unselectAreas();
+          }}
+          onMouseOver={(ev) => {
+            if (!item.annotation.isLinkingMode) {
+              if (typeof ev.target.getStage().container() === "function") {
+                ev.target.getStage().container().style.cursor = Constants.POINTER_CURSOR;
+              }
+              else{
+                ev.target.getStage().container.style.cursor = Constants.POINTER_CURSOR;
+              }
+            }
+          }}
+          onMouseOut={(ev) => {
+            ev.target.getStage().container().style.cursor = Constants.DEFAULT_CURSOR;
+          }}
+          onDragStart={(e) => {
+            dragStartPointRef.current = {
+              x: item.canvasToInternalX(e.target.getAttr("x")),
+              y: item.canvasToInternalY(e.target.getAttr("y")),
+            };
+          }}
+          dragBoundFunc={(pos) => {
+            let { x, y } = pos;
+            const { top, left, right, bottom } = item.selectedRegionsBBox;
+            const { stageHeight, stageWidth } = item;
+
+            const offset = {
+              x: dragStartPointRef.current.x - left,
+              y: dragStartPointRef.current.y - top,
+            };
+
+            x -= offset.x;
+            y -= offset.y;
+
+            const bbox = { x, y, width: right - left, height: bottom - top };
+
+            const fixed = fixRectToFit(bbox, stageWidth, stageHeight);
+
+            if (fixed.width !== bbox.width) {
+              x += (fixed.width - bbox.width) * (fixed.x !== bbox.x ? -1 : 1);
+            }
+
+            if (fixed.height !== bbox.height) {
+              y += (fixed.height - bbox.height) * (fixed.y !== bbox.y ? -1 : 1);
+            }
+
+            x += offset.x;
+            y += offset.y;
+            return { x, y };
+          }}
+        />
+      )}
+    </Layer>
+  );
+});
+
+const SelectedRegions = observer(({ item, selectedRegions }) => {
+  if (!selectedRegions) return null;
+  const { brushRegions = [], shapeRegions = [] } = splitRegions(selectedRegions);
+
+  return (
+    <>
+      {isFF(FF_LSDV_4930) ? null : <TransformerBack item={item} />}
+      {brushRegions.length > 0 && (
+        <Regions key="brushes" name="brushes" regions={brushRegions} useLayers={false} showSelected chunkSize={0} />
+      )}
+
+      {shapeRegions.length > 0 && (
+        <Regions key="shapes" name="shapes" regions={shapeRegions} showSelected chunkSize={0} />
+      )}
+    </>
+  );
+});
+
 const SelectionLayer = observer(({ item, selectionArea }) => {
   const scale = isFF(FF_DEV_3793) ? 1 : 1 / (item.zoomScale || 1);
   const [isMouseWheelClick, setIsMouseWheelClick] = useState(false);
@@ -238,13 +332,18 @@ const SelectionLayer = observer(({ item, selectionArea }) => {
         selectedShapes={item.selectedRegions}
         singleNodeMode={item.selectedRegions.length === 1}
         useSingleNodeRotation={item.selectedRegions.length === 1 && supportsRotate}
-        // draggableBackgroundSelector={}
+        draggableBackgroundSelector={`#${TRANSFORMER_BACK_ID}`}
       />
       </Layer>
   );
 });
 
-const Selection = observer(({ item }) => {
+/**
+ * Previously regions rerendered on window resize because of size recalculations,
+ * but now they are rerendered just by mistake because of unmemoized `splitRegions` in main render.
+ * This is temporary solution to pass in relevant props changed on window resize.
+ */
+const Selection = observer(({ item, ...triggeredOnResize }) => {
   const { selectionArea } = item;
 
   return (
@@ -254,6 +353,78 @@ const Selection = observer(({ item }) => {
     </>
   );
 });
+
+const Crosshair = memo(
+  forwardRef(({ width, height }, ref) => {
+    const [pointsV, setPointsV] = useState([50, 0, 50, height]);
+    const [pointsH, setPointsH] = useState([0, 100, width, 100]);
+    const [x, setX] = useState(100);
+    const [y, setY] = useState(50);
+
+    const [visible, setVisible] = useState(false);
+    const strokeWidth = 1;
+    const dashStyle = [3, 3];
+    const enableStrokeScale = false;
+
+    if (ref) {
+      ref.current = {
+        updatePointer(newX, newY) {
+          if (newX !== x) {
+            setX(newX);
+            setPointsV([newX, 0, newX, height]);
+          }
+
+          if (newY !== y) {
+            setY(newY);
+            setPointsH([0, newY, width, newY]);
+          }
+        },
+        updateVisibility(visibility) {
+          setVisible(visibility);
+        },
+      };
+    }
+
+    return (
+      <Layer name="crosshair" listening={false} opacity={visible ? 0.6 : 0}>
+        <Group>
+          <Line
+            name="v-white"
+            points={pointsH}
+            stroke="#fff"
+            strokeWidth={strokeWidth}
+            strokeScaleEnabled={enableStrokeScale}
+          />
+          <Line
+            name="v-black"
+            points={pointsH}
+            stroke="#000"
+            strokeWidth={strokeWidth}
+            dash={dashStyle}
+            strokeScaleEnabled={enableStrokeScale}
+          />
+        </Group>
+        <Group>
+          <Line
+            name="h-white"
+            points={pointsV}
+            stroke="#fff"
+            strokeWidth={strokeWidth}
+            strokeScaleEnabled={enableStrokeScale}
+          />
+          <Line
+            name="h-black"
+            points={pointsV}
+            stroke="#000"
+            strokeWidth={strokeWidth}
+            dash={dashStyle}
+            strokeScaleEnabled={enableStrokeScale}
+          />
+        </Group>
+      </Layer>
+    );
+  }),
+);
 
 /*
  * Component that creates an overlay on top
@@ -442,7 +613,7 @@ export default observer(
       window.removeEventListener("resize", this.onResize);
 
       if (this.viewerRef.current) {
-        this.viewerRef.current.destroy();
+        // this.viewerRef.current.destroy();
         this.viewerRef.current = null;
       }
 
@@ -532,7 +703,6 @@ export default observer(
                 state={this.state}
               />}
 
-              {/* <Selection item={item} /> */}
               <DrawingRegion item={item} />
 
               {item.crosshair && (
@@ -642,6 +812,7 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
       const disposer = autorun(() => {
         const hasActiveStates = item.activeStates().length > 0;
         viewerRef.current.gestureSettingsMouse.dragToPan = !hasActiveStates;
+        // viewerRef.current.setMouseNavEnabled(!hasActiveStates); // Disable mouse navigation entirely
       });
 
       // cleanup when component unmounts
@@ -761,10 +932,22 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
   // Prevent OSD panning if interacting with shape or drawing
   viewer.gestureSettingsMouse.dragToPan = !(shape || hasActiveStates);
+  // viewer.setMouseNavEnabled(!(shape || hasActiveStates)); // Disable mouse navigation entirely
 
 
-  //no way
-  
+  // Create and dispatch a synthetic mouseup event
+  const mouseUpEvent = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    view: window,
+    // You can add specific coordinates if needed
+    clientX: e.originalEvent.clientX,
+    clientY: e.originalEvent.clientY,
+    button: e.originalEvent.button
+  });
+
+  window.dispatchEvent(mouseUpEvent);
+
   if(shape){
     if(type!=="mousemove"){
     console.log("Sending event to shape (ignoring mousemove)", type)
@@ -829,10 +1012,10 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
         tlBound.current = visible_bounds.getTopLeft()
         brBound.current = visible_bounds.getBottomRight()
 
-        brBound.current.x = _.clamp(brBound.current.x,0.0,1.0)
-        brBound.current.y = _.clamp(brBound.current.y,0.0,1.0)
-        tlBound.current.x = _.clamp(tlBound.current.x,0.0,1.0)
-        tlBound.current.y = _.clamp(tlBound.current.y,0.0,1.0)
+        brBound.current.x = clamp(brBound.current.x,0.0,1.0)
+        brBound.current.y = clamp(brBound.current.y,0.0,1.0)
+        tlBound.current.x = clamp(tlBound.current.x,0.0,1.0)
+        tlBound.current.y = clamp(tlBound.current.y,0.0,1.0)
 
         const tlWindow = viewerRef.current.viewport.viewportToWindowCoordinates(tlBound.current)
         const brWindow = viewerRef.current.viewport.viewportToWindowCoordinates(brBound.current)
@@ -1041,7 +1224,7 @@ const StageContent = observer(({ item, store, state, crosshairRef }) => {
       {/* A more efficient grid overlay so it can handle 40k by 40k images  */}
       {item.grid && item.sizeUpdated && <GridOverlay item={item} />}
 
-      {false ? <TransformerBack item={item} /> : null}
+      {isFF(FF_LSDV_4930) ? <TransformerBack item={item} /> : null}
 
       {renderableRegions.map(([groupName, list]) => {
         const isBrush = groupName.match(/brush/i) !== null;
@@ -1059,7 +1242,8 @@ const StageContent = observer(({ item, store, state, crosshairRef }) => {
           <Fragment key={groupName} />
         );
       })}
-      {/* <Selection item={item} isPanning={state.isPanning} /> */}
+      <SelectedRegions item={item} selectedRegions={item.selectedRegions} />
+      <Selection item={item} isPanning={state.isPanning} />
       <DrawingRegion item={item} />
 
       {item.crosshair && (
