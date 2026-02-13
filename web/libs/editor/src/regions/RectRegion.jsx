@@ -512,6 +512,8 @@ const HtxRectangleView = ({ item, setShapeRef }) => {
           item.updateCursor();
         }}
         onClick={(e) => {
+
+          console.log("RectRegion click")
           if (item.parent.getSkipInteractions()) return;
           if (store.annotationStore.selected.isLinkingMode) {
 
@@ -527,7 +529,8 @@ const HtxRectangleView = ({ item, setShapeRef }) => {
           item.setHighlight(false);
           item.onClickRegion(e);
         }}
-        listening={!suggestion && !item.annotation?.isDrawing}
+        // listening={!suggestion && !item.annotation?.isDrawing}
+        listening={true}
       />
       <LabelOnRect item={item} color={regionStyles.strokeColor} strokewidth={regionStyles.strokeWidth} />
     </RegionWrapper>

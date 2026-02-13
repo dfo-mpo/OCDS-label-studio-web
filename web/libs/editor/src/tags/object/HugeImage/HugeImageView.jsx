@@ -238,7 +238,7 @@ const SelectionLayer = observer(({ item, selectionArea }) => {
         selectedShapes={item.selectedRegions}
         singleNodeMode={item.selectedRegions.length === 1}
         useSingleNodeRotation={item.selectedRegions.length === 1 && supportsRotate}
-        draggableBackgroundSelector={`#${TRANSFORMER_BACK_ID}`}
+        // draggableBackgroundSelector={}
       />
       </Layer>
   );
@@ -250,9 +250,7 @@ const Selection = observer(({ item }) => {
   return (
     <>
       <Layer name="selection-regions-layer" />
-      {/*
-        <SelectionLayer item={item} selectionArea={selectionArea} />
-        */}
+      <SelectionLayer item={item} selectionArea={selectionArea} />
     </>
   );
 });
@@ -534,7 +532,7 @@ export default observer(
                 state={this.state}
               />}
 
-              <Selection item={item} />
+              {/* <Selection item={item} /> */}
               <DrawingRegion item={item} />
 
               {item.crosshair && (
@@ -700,14 +698,18 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
   const handleStageEvent = (type) => (e) => {
 
+    if(type!="mousemove"){
+      console.log("Stage event: ",type)
+    }
+
     const isStage = e.target?.constructor.name === "Stage" 
-    const isRect = e.target?.constructor.name === "Stage" 
+    const isRect = e.target?.constructor.name === "Rect" 
     
     if(isRect){
       if(type=="click"){
           console.log("Clicked on rect: ",e.target)
       }
-      console.log("Rect event: ",type)
+      //all this gets is rect mouse move
     }
 
     //so if we add pointer-events: auto to the kanvas we do get mouse moves on rect
@@ -716,36 +718,79 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
     //like the origianl event?
     //canvas could also work
 
-    if(isStage){
+    // if(type=="mousemove"){
 
-      if(type=="mousemove"){
-
-        const viewportPos = canvasToInternal(e.evt.offsetX, e.evt.offsetY)
-        // console.log("viewportPos: ",viewportPos)
-        item.updateCanvasSize(viewerRef.current.canvas.offsetWidth,viewerRef.current.canvas.offsetHeight) 
-        item.event(type, e, viewportPos.x, viewportPos.y);//this goes to image.js 
-      }
+    var viewportPos = canvasToInternal(e.evt.offsetX, e.evt.offsetY)
+    if(e.from_osd){
+      viewportPos = {x: e.x, y: e.y}
     }
+    // const pos = item.stageRef.getPointerPosition();
+    // const shape = item.stageRef.getIntersection(pos);
+
+    item.updateCanvasSize(viewerRef.current.canvas.offsetWidth,viewerRef.current.canvas.offsetHeight) 
+    item.event(type, e, viewportPos.x, viewportPos.y);//this goes to image.js 
   }
     
-    const handleOSDEvent = (type) => (e) => {
-      const viewport = viewerRef.current.viewport;
-      const viewportPos = viewport.pointFromPixel(e.position)
-      //outside of image
-      if(viewportPos.x < 0 || viewportPos.y < 0 || viewportPos.x > 1 || viewportPos.y > 1){
-        return
-      }
-      // updateStageSize()
-      //console.log("Viewport pos: ",viewportPos, " Event: ",e)
-      item.updateCanvasSize(viewerRef.current.canvas.offsetWidth,viewerRef.current.canvas.offsetHeight) 
-      if(type !== "mousemove"){
-        console.log("Non mouse move: ", type)
-      }
-      item.event(type, e.originalEvent, viewportPos.x, viewportPos.y);//this goes to image.js 
-      
-    //if(e.originalEvent.shiftKey){
+ const handleOSDEvent = (type) => (e) => {
 
-  };
+
+  // console.log("Type: ",type)
+
+  const stage = item.stageRef;
+  const viewer = viewerRef.current;
+
+  const viewport = viewer.viewport;
+  const viewportPos = viewport.pointFromPixel(e.position);
+
+  // Outside image bounds
+  if (
+    viewportPos.x < 0 ||
+    viewportPos.y < 0 ||
+    viewportPos.x > 1 ||
+    viewportPos.y > 1
+  ) {
+    return;
+  }
+
+  // Convert OSD pixel → DOM client coords
+  const rect = stage.container().getBoundingClientRect();
+
+  const pos = stage.getPointerPosition();
+  const shape = stage.getIntersection(pos);
+  const hasActiveStates = item.activeStates().length > 0;
+
+  // Prevent OSD panning if interacting with shape or drawing
+  viewer.gestureSettingsMouse.dragToPan = !(shape || hasActiveStates);
+
+
+  //no way
+  
+  if(shape){
+    if(type!=="mousemove"){
+    console.log("Sending event to shape (ignoring mousemove)", type)
+    }
+      shape.fire(type, {
+      x: pos.x,
+      y: pos.y,
+      target: shape,
+      evt: e.originalEvent,
+      from_osd:true
+    }, false);
+
+    if(type=="mouseup"){
+      shape.stopDrag(e.originalEvent)
+    }
+  } 
+  else{
+      item.stageRef.fire(type, {
+        x: viewportPos.x,
+        y: viewportPos.y,
+        target: item.stageRef,
+        evt: e.originalEvent,
+        from_osd:true
+      }, true);
+  }
+};
 
   /*
   Input is broken
@@ -867,16 +912,6 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
     }
   }, [viewerRef.current]);
 
-  // const stageRefCallback = useCallback((ref) => {
-  //   if(ref == null){
-  //     console.log("What the heck")
-  //     item.setStageRef(item.stageRef);
-  //   }
-  //   else{
-  //     item.stageRef = ref;
-  //   }
-  // }, [item]);
-
   return (
     <div id="EntireStage">
       
@@ -901,7 +936,10 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
           pointerEvents:"auto",
         }}
         onMouseMove={handleStageEvent('mousemove')}
+        //OSD captures all these events anyways
         onClick={handleStageEvent('click')}
+        onMouseDown={handleStageEvent('mousedown')}
+        onMouseUp={handleStageEvent('mouseup')}
         >
 
         <StageContent item={item} store={store} state={state} crosshairRef={crosshairRef} />
@@ -1021,7 +1059,7 @@ const StageContent = observer(({ item, store, state, crosshairRef }) => {
           <Fragment key={groupName} />
         );
       })}
-      <Selection item={item} isPanning={state.isPanning} />
+      {/* <Selection item={item} isPanning={state.isPanning} /> */}
       <DrawingRegion item={item} />
 
       {item.crosshair && (
