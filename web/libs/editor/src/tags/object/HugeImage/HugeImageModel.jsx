@@ -13,6 +13,8 @@ import { EllipseRegionModel } from "../../../regions/EllipseRegion";
 import { KeyPointRegionModel } from "../../../regions/KeyPointRegion";
 import { PolygonRegionModel } from "../../../regions/PolygonRegion";
 import { RectRegionModel } from "../../../regions/RectRegion";
+import OpenSeadragon from "openseadragon";
+
 
 import {
   FF_DEV_3377,
@@ -42,6 +44,7 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
   .volatile(() => ({
     viewer: null,
     stageRef: null,
+    dragBoundFunc: null,
   }))
   .actions((self) => ({
 
@@ -175,6 +178,101 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
       toolsManager.event(name, ev.evt || ev, canvasX, canvasY);
     },
 
+   _recalculateImageParams() {
+      self.stageWidth = isFF(FF_DEV_3377)
+        ? self.naturalWidth * self.stageZoom
+        : Math.round(self.naturalWidth * self.stageZoom);
+      self.stageHeight = isFF(FF_DEV_3377)
+        ? self.naturalHeight * self.stageZoom
+        : Math.round(self.naturalHeight * self.stageZoom);
+    },
+
+    _updateImageSize({ width, height, userResize }) {
+      if (self.naturalWidth === undefined) {
+        return;
+      }
+      if (width > 1 && height > 1) {
+        const prevWidth = self.canvasSize.width;
+        const prevHeight = self.canvasSize.height;
+        const prevStageZoom = self.stageZoom;
+        const prevZoomScale = self.zoomScale;
+
+        self.containerWidth = width;
+        self.containerHeight = height;
+
+        // reinit zoom to calc stageW/H
+        self.setZoom(self.currentZoom);
+
+        self._recalculateImageParams();
+
+        const zoomChangeRatio = self.stageZoom / prevStageZoom;
+        const scaleChangeRatio = self.zoomScale / prevZoomScale;
+        const changeRatio = zoomChangeRatio * scaleChangeRatio;
+
+        self.setZoomPosition(
+          self.zoomingPositionX * changeRatio + (self.canvasSize.width / 2 - (prevWidth / 2) * changeRatio),
+          self.zoomingPositionY * changeRatio + (self.canvasSize.height / 2 - (prevHeight / 2) * changeRatio),
+        );
+      }
+
+      self.sizeUpdated = true;
+      self._updateRegionsSizes({
+        width: self.stageWidth,
+        height: self.stageHeight,
+        naturalWidth: self.naturalWidth,
+        naturalHeight: self.naturalHeight,
+        userResize,
+      });
+    },
+    
+
+    _updateRegionsSizes({ width, height, naturalWidth, naturalHeight, userResize }) {
+      const _historyLength = self.annotation?.history?.history?.length;
+
+      self.annotation.history.freeze();
+
+      self.regions.forEach((shape) => {
+        shape.updateImageSize(width / naturalWidth, height / naturalHeight, width, height, userResize);
+      });
+      self.regs.forEach((shape) => {
+        shape.updateImageSize(width / naturalWidth, height / naturalHeight, width, height, userResize);
+      });
+      self.drawingRegion?.updateImageSize(width / naturalWidth, height / naturalHeight, width, height, userResize);
+
+      setTimeout(self.annotation.history.unfreeze, 0);
+
+      //sometimes when user zoomed in, annotation was creating a new history. This fix that in case the user has nothing in the history yet
+      if (_historyLength <= 1) {
+        // Don't force unselection of regions during the updateObjects callback from history reinit
+        setTimeout(() => self.annotation?.reinitHistory(false), 0);
+      }
+    },
+
+    updateImageSize(ev) {
+
+      console.log("Update image size")
+
+      const { naturalWidth, naturalHeight } = self.imageRef ?? ev.target;
+      const { offsetWidth, offsetHeight } = self.viewer.container;
+
+      self.naturalWidth = naturalWidth;
+      self.naturalHeight = naturalHeight;
+
+      self._updateImageSize({ width: offsetWidth, height: offsetHeight });
+      // after regions' sizes adjustment we have to reset all saved history changes
+      // mobx do some batch update here, so we have to reset it asynchronously
+      // this happens only after initial load, so it's safe
+      self.setReady(true);
+
+      if (self.defaultzoom === "fit") {
+        self.sizeToFit();
+      } else {
+        self.sizeToAuto();
+      }
+      // Don't force unselection of regions during the updateObjects callback from history reinit
+      setTimeout(() => self.annotation?.reinitHistory(false), 0);
+    },
+
     //override the handle zoom function
     handleZoom(val, mouseRelativePos = { x: self.canvasSize.width / 2, y: self.canvasSize.height / 2 }) {
       
@@ -253,7 +351,6 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
     getToolsManager() {
       return self.manager;
     },
-
     // onMouseDown(x, y, event) {
     //   const activeTool = self.manager?.activeTool;
     //   if (activeTool?.onMouseDown) {
@@ -281,6 +378,10 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
     //     activeTool.onMouseMove({ x, y, originalEvent: event.originalEvent });
     //   }
     // },
+
+    setDragBoundFunc(func){
+      self.dragBoundFunc = func
+    },
   }))
   .views((self) => ({
 

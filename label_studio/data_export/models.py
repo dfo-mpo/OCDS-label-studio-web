@@ -130,7 +130,15 @@ class DataExport(object):
 
     @staticmethod
     def get_export_formats(project):
-        converter = Converter(config=project.get_parsed_config(), project_dir=None)
+
+        parsed = project.get_parsed_config()
+        normalized = deepcopy(parsed)
+        for _, info in normalized.items():
+            for input_tag in info.get("inputs", []):
+                if input_tag.get("type") == "HugeImage":
+                    input_tag["type"] = "Image"
+
+        converter = Converter(config=normalized, project_dir=None)
         formats = []
         supported_formats = set(converter.supported_formats)
         for format, format_info in converter.all_formats().items():

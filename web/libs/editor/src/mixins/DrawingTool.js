@@ -299,12 +299,15 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
         startPoint = { x, y };
         if (currentMode === DEFAULT_MODE) {
           modeAfterMouseMove = DRAG_MODE;
-          console.log("Draw tool start drawing (mouse down)")
+          // console.log("Draw tool start drawing (mouse down)")
         }
       },
 
       mousemoveEv(_, [x, y]) {
-        return
+        if(self.obj?.type === "hugeimage"){
+          // console.log("Drawing tool huge image model")
+          return//disable it for huge images, a weird crash occurs
+        }
         
         if (currentMode === DEFAULT_MODE && startPoint) {
           if (!self.comparePointsWithThreshold(startPoint, { x, y })) {

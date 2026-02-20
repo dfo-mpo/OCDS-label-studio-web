@@ -17,7 +17,7 @@ import { HugeImageModel } from "../tags/object";
 
 import { rotateBboxCoords } from "../utils/bboxCoords";
 import { FF_DEV_3793, isFF } from "../utils/feature-flags";
-import { createDragBoundFunc } from "../utils/image";
+import { createDragBoundFunc, fixRectToFit} from "../utils/image";
 import { AliveRegion } from "./AliveRegion";
 import { EditableRegion } from "./EditableRegion";
 import { RegionWrapper } from "./RegionWrapper";
@@ -470,11 +470,20 @@ const HtxRectangleView = ({ item, setShapeRef }) => {
       item.notifyDrawingFinished();
     };
 
+  // Use the appropriate dragBoundFunc
+  if (item?.parent.dragBoundFunc){
+    eventHandlers.dragBoundFunc = item.parent.dragBoundFunc(item, {
+      x: item.x - item.bboxCoords.left,
+      y: item.y - item.bboxCoords.top,
+    });
+  } else {
+    // console.log("Default drag bound func")
     eventHandlers.dragBoundFunc = createDragBoundFunc(item, {
       x: item.x - item.bboxCoords.left,
       y: item.y - item.bboxCoords.top,
     });
-  }
+    }
+  } 
 
   return (
     <RegionWrapper item={item}>
@@ -529,8 +538,8 @@ const HtxRectangleView = ({ item, setShapeRef }) => {
           item.setHighlight(false);
           item.onClickRegion(e);
         }}
-        // listening={!suggestion && !item.annotation?.isDrawing}
-        listening={true}
+
+        listening={!suggestion && !item.annotation?.isDrawing}
       />
       <LabelOnRect item={item} color={regionStyles.strokeColor} strokewidth={regionStyles.strokeWidth} />
     </RegionWrapper>

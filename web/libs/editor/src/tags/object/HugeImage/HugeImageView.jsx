@@ -59,7 +59,7 @@ const Region = memo(({ region, showSelected = false }) => {
 
 const RegionsLayer = memo(({ regions, name, useLayers, showSelected = false }) => {
   if (!Array.isArray(regions)) {
-    console.log("What")
+    // console.log("What")
     return null
   }
   else{
@@ -472,7 +472,8 @@ export default observer(
       const viewer = OpenSeadragon({
         id: containerId,
         prefixUrl: "https://openseadragon.github.io/openseadragon/images/",//icons i think
-        tileSources: "http://20.220.26.156:8080/dzi/3/SABLE_ISLAND.dzi",//item.currentSrc?
+        tileSources: 'http://20.220.26.156:8080/dzi/3/SABLE_ISLAND.dzi',//item.currentSrc?
+        //tileSources: `http://20.220.26.156:8080/dzi/${item.currentSrc}.dzi`,
         showNavigator: true,//TODO: add this to config
         showZoomControl: true,
         showHomeControl: false,
@@ -569,7 +570,7 @@ export default observer(
 
     onResize = debounce(() => {
       requestAnimationFrame(() => {
-        if (!this?.props?.item?.containerRef) return;
+        if (!(this?.props?.item?.containerRef)) return;
         const { offsetWidth, offsetHeight } = this.props.item.containerRef;
 
         if (this.props.item.naturalWidth <= 1) return;
@@ -817,19 +818,42 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
       // cleanup when component unmounts
       return () => disposer();
-  }, [item, viewerRef]);
+  }, [item, viewerRef])
 
-  // if (dragonDefined) {
-  //   const viewport = viewerRef.current.viewport;
-  //   const topLeft = viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0));
-  //   const bottomRight = viewport.pixelFromPoint(new OpenSeadragon.Point(1, 1));
-  //   stage_width = bottomRight.x - topLeft.x;
-  //   stage_height = bottomRight.y - topLeft.y;
+  function dragBoundFunc(item, offset = { x: 0, y: 0 }) {
+  return (pos) => {
+    let { x, y } = pos;
 
-  // }
+    const result = canvasToInternal(x,y)
+    x = result.x
+    y = result.y
 
-  // console.log("Entire Stage, dragonDefined: ",dragonDefined)
+    const bboxWidth = (item.bboxCoords.right - item.bboxCoords.left)/100.0
+    const bboxHeight = (item.bboxCoords.bottom - item.bboxCoords.top)/100.0
 
+    console.log("x+bboxWidth: ",x+bboxWidth, ", y+bboxHeight: ",y+bboxHeight)
+    console.log("XY: (",x,", ",y,")")
+
+    if(x<0){
+      x = 0
+    }
+    if(y<0){
+      y=0
+    }
+    if(x+bboxWidth>1){
+      x = 1-bboxWidth
+    }
+    if(y+bboxHeight>1){
+      y = 1-bboxHeight
+    }
+
+    const canvas_pos = internalToCanvas(x,y)
+
+    return canvas_pos
+    }
+  }
+
+  item.setDragBoundFunc(dragBoundFunc)
 
   function canvasToInternal(canvasX, canvasY){
     //Normalize mouse position to [0, 1] in stage space
@@ -855,17 +879,25 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
     return {x: ix,y: iy}
   }
 
+  function internalToCanvas(ix, iy) {
+    if (!canvas_width.current || !canvas_height.current || !brBound.current || !tlBound.current) {
+      updateStageSize();
+    }
 
-  // const handleEvent = (type) => (e) => {
-  //   //console.log("Regular event: ",e)
-  //   const viewport = viewerRef.current.viewport;
-  //   //const viewportPos = viewport.windowToViewportCoordinates(new OpenSeadragon.Point(e.offsetX, e.offsetY))
-  //   const g = {x: e.offsetX/e.target.offsetWidth, y: e.offsetY/e.target.offsetHeight}
-  //   //console.log("Viewport pos: ",viewportPos)
-  //   console.log("g pos: ",g, e.target)
-    
-  //   item.event(type, e, g.x, g.y);//this goes to image.js 
-  // }
+    // Compute visible viewport span
+    const spanX = brBound.current.x - tlBound.current.x;
+    const spanY = brBound.current.y - tlBound.current.y;
+
+    // Convert internal → normalized
+    const nx = (ix - tlBound.current.x) / spanX;
+    const ny = (iy - tlBound.current.y) / spanY;
+
+    // Convert normalized → canvas pixels
+    const canvasX = nx * canvas_width.current;
+    const canvasY = ny * canvas_height.current;
+
+    return { x: canvasX, y: canvasY };
+  }
 
   const handleStageEvent = (type) => (e) => {
 
