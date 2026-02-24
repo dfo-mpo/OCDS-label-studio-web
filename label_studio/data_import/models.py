@@ -103,6 +103,7 @@ class FileUpload(models.Model):
         except TypeError:
             tasks = json.loads(raw_data.decode('utf8'))
         
+        #OCDS, adding COCO support
         if isinstance(tasks, dict) and 'images' in tasks and 'annotations' in tasks:
             input_annotation_file = self.file.path 
             output_annotation_file = os.path.splitext(input_annotation_file)[0] + "_ls" + os.path.splitext(input_annotation_file)[1]

@@ -147,7 +147,14 @@ const RegionAction: FC<any> = observer(({ region, annotation, editMode, onEditMo
             var object = region.object;
 
             console.log(`Focus on object: annotation: ${annotation} region: ${region}`);
-            if (typeof object.setZoomPosition === "function" && region) {
+            
+            
+            if(object.type === "hugeimage"){
+
+              object.focusOnRegion(region);
+
+            }
+            else if (typeof object.setZoomPosition === "function" && region) {
               
               // Convert region coordinates from percentages to actual image coordinates
               const regionCenterX = (region.x + region.width / 2) / 100.0;
