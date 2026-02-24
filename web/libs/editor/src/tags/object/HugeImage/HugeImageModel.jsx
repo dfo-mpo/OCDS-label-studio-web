@@ -382,6 +382,33 @@ const HugeImageModel = ImageModel.named("HugeImageModel")
     setDragBoundFunc(func){
       self.dragBoundFunc = func
     },
+
+    focusOnRegion(region) {
+      if (!self.viewer?.viewport || !region) return;
+      // Convert region coordinates from percentages to actual image coordinates
+      
+      const {left, top, right, bottom} = region.bboxCoords
+      
+      const width = right - left
+      const height = bottom - top
+
+      const regionCenterX = (left + width / 2) / 100.0;
+      const regionCenterY = (top + height / 2) / 100.0;
+      
+      const regionCoverageX = width / 100.0;
+      const regionCoverageY = height / 100.0;
+
+      let marginx = 0.12*width/100+0.001
+      let marginy = 0.12*height/100+0.001
+      
+      self.viewer.viewport.fitBoundsWithConstraints(new OpenSeadragon.Rect(
+        regionCenterX - regionCoverageX / 2 - marginx,
+        regionCenterY - regionCoverageY / 2 - marginy,
+        regionCoverageX + marginx * 2,
+        regionCoverageY + marginy * 2
+      ), true);
+    },
+
   }))
   .views((self) => ({
 

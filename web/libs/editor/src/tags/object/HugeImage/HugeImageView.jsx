@@ -469,17 +469,21 @@ export default observer(
       //   this.viewerRef.current.destroy();
       // }
       
+      const parts = item.currentSrc.split("/");
+      const filename = parts[parts.length - 1];
+      const name = filename.substring(0, filename.lastIndexOf("."));
+
       const viewer = OpenSeadragon({
         id: containerId,
         prefixUrl: "https://openseadragon.github.io/openseadragon/images/",//icons i think
-        tileSources: 'http://20.220.26.156:8080/dzi/3/SABLE_ISLAND.dzi',//item.currentSrc?
-        //tileSources: `http://20.220.26.156:8080/dzi/${item.currentSrc}.dzi`,
+        //tileSources: 'http://20.220.26.156:8080/dzi/3/SABLE_ISLAND.dzi',//item.currentSrc?
+        tileSources: `http://20.220.26.156:8080/dzi/${name}.dzi`,
         showNavigator: true,//TODO: add this to config
         showZoomControl: true,
         showHomeControl: false,
         showFullPageControl: false,
         showRotationControl: item.rotatecontrol,
-        maxZoomPixelRatio: 5,
+        maxZoomPixelRatio: 6,
         minZoomLevel: 0.0,//item.negativezoom ? 0.1 : 1,
         zoomPerClick: 1.5,
         zoomPerScroll: 1.5,
@@ -903,11 +907,12 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
     if(type!="mousemove"){
       console.log("Stage event: ",type)
+      const isRect = e.target?.constructor.name === "Rect" 
     }
 
     const isStage = e.target?.constructor.name === "Stage" 
     const isRect = e.target?.constructor.name === "Rect" 
-    
+
     if(isRect){
       if(type=="click"){
           console.log("Clicked on rect: ",e.target)
@@ -956,16 +961,22 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   }
 
   // Convert OSD pixel → DOM client coords
-  const rect = stage.container().getBoundingClientRect();
+  // const rect = stage.container().getBoundingClientRect();
 
   const pos = stage.getPointerPosition();
   const shape = stage.getIntersection(pos);
   const hasActiveStates = item.activeStates().length > 0;
 
+  const shape2 = stage.getIntersection(e.position)
+
   // Prevent OSD panning if interacting with shape or drawing
   viewer.gestureSettingsMouse.dragToPan = !(shape || hasActiveStates);
-  // viewer.setMouseNavEnabled(!(shape || hasActiveStates)); // Disable mouse navigation entirely
 
+  if(e.target?.pointerClickStartShape?.type=="Rect"){
+    viewer.gestureSettingsMouse.dragToPan = false;
+  }
+
+  // viewer.setMouseNavEnabled(!(shape || hasActiveStates)); // Disable mouse navigation entirely
 
   // Create and dispatch a synthetic mouseup event
   const mouseUpEvent = new MouseEvent(type, {
@@ -980,7 +991,8 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
   window.dispatchEvent(mouseUpEvent);
 
-  if(shape){
+  if(shape){    
+
     if(type!=="mousemove"){
     console.log("Sending event to shape (ignoring mousemove)", type)
     }
@@ -1023,7 +1035,7 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
 
 
       function updateStageSize() {
-        if ((!item.stageRef || !originOffsetRef.current || !viewerRef.current || !visibleOffsetRef.current)) return
+        if ((!item.stageRef || !originOffsetRef.current || !viewerRef.current || !visibleOffsetRef.current)) return false
 
 
         // const rect = viewerRef.current.container.getBoundingClientRect()
@@ -1085,10 +1097,11 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
         item.stageRef.scale({ x: scaleX, y: scaleY });
         item.stageRef.position({ x: -scaleX* stage_content_internal_resolution.x*tlBound.current.x, y: -scaleY*stage_content_internal_resolution.y*tlBound.current.y }); // top-left corner as origin
         // item.stageRef.batchDraw();
-      }
 
-    // initial size
-    updateStageSize();
+        item.updateCanvasSize(viewerRef.current.canvas.offsetWidth,viewerRef.current.canvas.offsetHeight) 
+        
+        return true
+      }
 
   useEffect(() => {
     // resize listener
@@ -1122,10 +1135,23 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
       //we can get modifier already, but i guess if we wanted a hotkey
       //viewerRef.current.addHandler("canvas-key", handleOSDkeyEvent('canvas-key'));
 
+      //automatically update stage size once after opening
+      //and keep retrying
+      viewerRef.current.addHandler("open", () => {
+        const tryUpdate = () => {
+          const success = updateStageSize();
+          if (!success) {
+            setTimeout(tryUpdate, 25);
+          }
+        };
+        setTimeout(tryUpdate, 25);
+      });
+
     }
     return () => {
     }
   }, [viewerRef.current]);
+
 
   return (
     <div id="EntireStage">
