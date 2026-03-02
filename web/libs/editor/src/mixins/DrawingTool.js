@@ -380,7 +380,7 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
         }
 
         if (currentMode === DEFAULT_MODE) {
-          self.startDrawing(x, y);
+          self.startDrawing(x-dX/2.0, y-dY/2.0);
           if (!self.isDrawing) return;
           x += dX;
           y += dY;
