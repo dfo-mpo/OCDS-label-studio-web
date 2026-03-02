@@ -320,12 +320,36 @@ case "${1:-start}" in
         show_status
         print_success "Label Studio is now running!"
         ;;
+
+    back-dev)
+        print_status "Starting backend development server..."
+    
+        export LOG_LEVEL=DEBUG
+        export DJANGO_LOG_LEVEL=DEBUG
+
+        export FRONTEND_HMR=true
+        export FRONTEND_HOSTNAME=http://localhost:8010
+        cd ~/label-studio-web-OCDS/web
+        yarn dev &
+
+        generate_nginx_conf
+        #start_uwsgi    this has to be done by VS code in debug mode
+        start_nginx        
+        check_health
+
+        #cd "$LABEL_STUDIO_DIR" || { print_error "Label Studio directory not found: $LABEL_STUDIO_DIR"; exit 1; }
+        #poetry run python manage.py runserver
+        ;;
     front-dev)
     
         # create_screen_session
 
         print_status "Starting frontend development server..."
         stop_services
+
+        print_warning "Logger level set to DEBUG"
+        export LOG_LEVEL=DEBUG
+        export DJANGO_LOG_LEVEL=DEBUG
 
         export FRONTEND_HMR=true
         export FRONTEND_HOSTNAME=""
