@@ -24,7 +24,7 @@ db/
 logfile
 venv/
 .venv
-.vscode
+#.vscode
 .autoenv
 .env
 .envrc
