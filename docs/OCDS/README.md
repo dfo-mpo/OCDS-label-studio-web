@@ -98,4 +98,5 @@ Once you run start.sh back-dev, navigate to the label_studio.py file, and run it
 
 
 
-### Strucutre of the software
+### Structure of the software
+
