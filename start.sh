@@ -238,6 +238,10 @@ show_help() {
     echo "  front-dev Run frontend development server with yarn dev"
     echo "  help      Show this help message"
     echo
+    echo "  convert [force|clear]"
+    echo "           Convert images in ./hugeimages to DZI format in ./dzi"
+    echo "           force = reconvert all images"
+    echo "           clear = delete all DZI outputs"
 }
 
 # Show recent logs
@@ -286,7 +290,6 @@ generate_nginx_conf() {
     print_success "Nginx config generated at $output_path"
 }
 
-
 # create_screen_session() {
 #     # Check if a screen with this name already exists
 #     local EXISTING_SCREEN
@@ -302,7 +305,6 @@ generate_nginx_conf() {
 
 #     print_status "Screen created: $SCREEN_NAME. Terminal session can now be reconnected later with: screen -r $SCREEN_NAME"
 # }
-
 
 # Main execution
 case "${1:-start}" in
@@ -321,6 +323,12 @@ case "${1:-start}" in
         print_success "Label Studio is now running!"
         ;;
 
+    convert)
+        # Remove the first argument ("convert") so we only pass the rest
+        shift
+        python3 "$REPO_ROOT/convert_to_dzi.py" "$@"
+        ;;
+        
     back-dev)
         print_status "Starting backend development server..."
     
