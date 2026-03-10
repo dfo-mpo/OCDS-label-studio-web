@@ -1,8 +1,8 @@
 title: Huge Image Annotation with Bounding Boxes
 type: community
 group: Computer Vision
-order: 4
-image: /static/templates/object-detection-with-bounding-boxes.png
+order: 0
+image: /static/templates/huge-image-boxes.png
 details: <h1>Draw a bounding box around object</h1>
 config: |
   <View>
