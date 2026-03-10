@@ -473,11 +473,18 @@ export default observer(
       const filename = parts[parts.length - 1];
       const name = filename.substring(0, filename.lastIndexOf("."));
 
+      console.log("Opening currentSrc: ", item.currentSrc)
+      var tileSource = `http://20.220.26.156:8080/dzi/${name}.dzi`
+
+      if(item.currentSrc == "Sample: Header text"){
+        tileSource = "https://openseadragon.github.io/example-images/highsmith/highsmith.js"
+      }
+
       const viewer = OpenSeadragon({
         id: containerId,
         prefixUrl: "https://openseadragon.github.io/openseadragon/images/",//icons i think
         //tileSources: 'http://20.220.26.156:8080/dzi/3/SABLE_ISLAND.dzi',//item.currentSrc?
-        tileSources: `http://20.220.26.156:8080/dzi/${name}.dzi`,
+        tileSources: tileSource,
         showNavigator: true,//TODO: add this to config
         showZoomControl: true,
         showHomeControl: false,
