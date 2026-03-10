@@ -1,0 +1,20 @@
+title: Huge Image Annotation with Bounding Boxes
+type: community
+group: Computer Vision
+order: 4
+image: /static/templates/object-detection-with-bounding-boxes.png
+details: <h1>Draw a bounding box around object</h1>
+config: |
+  <View>
+    <HugeImage name="theImage" value="$image" 
+              saturationControl="true" invertControl="true"
+              brightnessControl="true" contrastControl="true"
+              grid="true"
+              gridSize="60"
+              defaultRectWidth="0.12" defaultRectHeight="0.12"/>
+    <RectangleLabels name="label" toName="theImage">
+      <Label value="Seal" background="green"/>
+      <Label value="Beluga" background="blue"/>
+    </RectangleLabels>
+    <Header value="$image"/>
+  </View>
