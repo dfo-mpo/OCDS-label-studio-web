@@ -820,8 +820,11 @@ export const EntireStage = observer(({ item, viewerRef, imagePositionClassnames,
   useEffect(() => {
       if (!viewerRef.current) return;
 
-      // MobX autorun will react to any observable used inside
+      // // MobX autorun will react to any observable used inside
       const disposer = autorun(() => {
+        if(!item.annotation?.states){
+          return
+        }
         const hasActiveStates = item.activeStates().length > 0;
         viewerRef.current.gestureSettingsMouse.dragToPan = !hasActiveStates;
         // viewerRef.current.setMouseNavEnabled(!hasActiveStates); // Disable mouse navigation entirely
