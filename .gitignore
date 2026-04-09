@@ -51,7 +51,7 @@ archive
 *.rtl.css
 *.rtl.min.css
 *.idea/*
-.vscode/*
+#.vscode/*
 pyrightconfig.json
 tags.temp
 mydatabase
