@@ -385,7 +385,7 @@ Its purpose was to import a coco annotation, and from that automatically generat
 
 ### Project Deletion Crash
 
-* Occurs when deleting all tasks in a project
+* Occurs when deleting the last task in a project
 * Produces a red error screen but does not appear to cause further damage
 * Likely caused by a sequencing issue in the deletion order (tasks → annotations → project)
 * May be triggered specifically by projects with corrupted COCO-imported data
@@ -400,27 +400,16 @@ File:
 web/libs/editor/src/mixins/DrawingTool.js
 ```
 
-The two-point click-to-draw annotation feature was intentionally disabled by making the relevant click handler return immediately. When enabled, it causes a crash — suspected cause is that an in-progress annotation is being rendered in the wrong parent context. The exact cause was not able to be determined.
+The two-point click-to-draw annotation feature was intentionally disabled by making the relevant click handler return immediately. When enabled, it causes a crash. The suspected cause is that an in-progress annotation is being rendered in the wrong parent context. The exact cause was not able to be determined. It was a good feature but the crash message is very unclear as to what actually happens. It is only disabled / crashes for HugeImage projects.
 
 ---
 
 ### Static Asset Caching
 
-After running `./start.sh build`, requests may be intercepted by an unidentified caching layer and return stale assets instead of the newly built ones. The source of this caching has not been identified — it is not NGINX, the browser cache, or the VM itself, as all of these were ruled out during investigation.
+After running `./start.sh build`, requests may be intercepted by an unidentified caching mechanism and return stale assets instead of the newly built ones. The source of this caching has not been identified. It is not NGINX, the browser cache, or the VM itself.
 
 * Not resolved by resetting browser caches, restarting the machine, or restarting the VM
 * Appears to resolve on its own after roughly a day
+* The browsers support a cache=false flag, there is a small chance this would help if the network also supported the flag. Its possible that this could be attached to the responses at the nginx config file.
 
 ---
-
-## Final Notes
-
-This system has several tightly coupled components (NGINX, Django, Webpack, OpenSeadragon), and many issues arise at the boundaries between them.
-
-When debugging:
-
-* Verify which layer is responsible (proxy, backend, frontend, renderer)
-* Be cautious of caching (NGINX, browser, Webpack, and the unidentified third-party layer — see Known Issues)
-* Be aware that OpenSeadragon alters normal event flow throughout the annotation interface
-
-Understanding these interactions is key to maintaining the system effectively.
