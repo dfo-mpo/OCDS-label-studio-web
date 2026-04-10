@@ -1,179 +1,415 @@
-# Documentation of Label Studio, by OCDS
+# Label Studio (OCDS) – System Documentation
 
-## This is documentation written by OCDS
-## Documenting the procedures and structure of label studio
+This document describes the architecture, operation, and key implementation details of the customized Label Studio deployment built by OCDS.
 
-### General Structure of Label Studio
+---
 
-When label studio is running, there are generally 3 servers.
+## Table of Contents
 
-The first server and the simplest one is NGINX, this is essentially the front door of the server.
-When a connection from the internet comes to the server, NGINX is the first to receive it, and it routes it to other servers, or retrieves files as requested.
-It is configured by a file called nginx.conf, located in 
-/nginx/conf/nginx.conf generated from /nginx/conf/nginx.conf.template on startup
-Nginx is configured to run on port 8080.
+1. System Overview
+2. Running the Application
+3. System Architecture
+4. Image Conversion (Deep Zoom)
+5. Creating a HugeImage Project
+6. Development Notes
+7. Known Issues
 
-Here is a simplified sample of the config
-```shell
-        ...
-        # DeepZoom route
-        location /dzi/ {
-            alias /home/azureuser/label-studio-web-OCDS/dzi/;
-            autoindex off;
-        }
-        location / {
-            absolute_redirect off;
-            send_timeout 90;
-            proxy_pass http://127.0.0.1:8000/;
-        }
-```
-So here it is sending requests to /dzi/ to the actual folder where the deep zoomable images are held, and it is sending requests that dont match any previous location to the server at port 8000, which is the backend server.
+---
 
-The backend server is written in python, and using the django framework. It handles all of the data part of the website like saving annotations, getting annotations, uploading files, logging in, etc.
-It is run by a command called uwsgi, which seems to be a python server for production applications, handling things like threads, timeouts, etc.
-The server can be run with regular python instead, but only for development purposes.
-The actual data itself is stored in a sqlite3 database, which you can access with
-(assuming you are running this in the repo directory, label-studio-web-ocds)
-I believe this is configurable, so it may be different on other machines.
-```shell 
-sqlite3 ../.local/share/label-studio/label_studio.sqlite3
-```
+## 1. System Overview
 
-Next there is the frontend, which is the actual user interface. This consists of an app written in javascript, and using the React framework. However instead of just serving the frontend files as they are, they are compressed, have their context removed, and turned into a webpack. This is handled by yarn. 
-If the server is in development mode, then yarn will be a server at port 8010
-which will supply the files actively, and if its in production mode then it will just build the files and they'll be served statically by nginx instead.
-The backend has a config for the frontend address, if its blank ("") it serves it statically, otherwise it will be expecting a server.
+This deployment of Label Studio consists of three primary components:
 
-Snippet from the launch.json showing the environment variables, which makes it require a frontend server.
-```shell
-    "env": {
-    "PYTHONPATH": "${workspaceFolder}",
-    "FRONTEND_HMR": "true",
-    "FRONTEND_HOSTNAME": "http://localhost:8010"
-    }
+* **NGINX** – Entry point and reverse proxy
+* **Frontend (React + Webpack)** – User interface
+* **Backend (Django + uWSGI)** – Application logic and data handling
+
+Additionally, the system includes a utility for converting large images into a tiled format compatible with OpenSeadragon.
+
+---
+
+## 2. Running the Application
+
+A helper script, `start.sh`, is used to manage all services. This script abstracts most operational complexity and should be the primary interface for starting, stopping, and maintaining the system, including image conversion (see [Image Conversion](#4-image-conversion-deep-zoom)).
+
+Note that all start modes spawn multiple processes. `Ctrl+C` will only stop the webpack process — other processes will continue running. Always use `./start.sh stop` to fully shut down.
+
+---
+
+### Production Mode
+
+```bash
+./start.sh
 ```
 
-### Starting the servers (And start.sh in general)
-We have a shell script called start.sh, with a couple different routes, that tries to automate as much of the process as possible. 
+This starts:
 
-Note that these commands start multiple processes, so when you hit Ctrl+C to stop the process, there will be other processes still running.
-To stop them all you can run:
-```shell
-start.sh stop
+* NGINX
+* Backend (via uWSGI)
+* Serves pre-built frontend assets
+
+---
+
+### Development Modes
+
+#### Full Development Environment
+
+```bash
+./start.sh front-dev
 ```
 
-If you just want to start the server for production, just run:
-```shell
-start.sh
-```
+This starts:
 
-For starting it for development, the options are below.
-```shell
-start.sh front-dev
+* NGINX
+* Backend
+* Frontend development server (yarn dev)
+
+Hot Module Replacement (HMR) is enabled, allowing frontend changes to be reflected without restarting the server.
+
+Initial startup will take time due to frontend compilation. When the build is ready, you will see:
+
 ```
-This will start the nginx server, run the frontend in dev mode with yarn dev, and run the backend server as well.
-This has Hot Module Replacement (HMR) enabled, which means that if you change any of the frontend code, the yarn server will detect and rebuild that part of the front end, so you can rapidly see the results of the change. 
-You will see a message like this when its done building.
-```shell
 chunk (runtime: runtime) vendor.js (vendor) (id hint: commonVendor) 1.65 MiB [initial] split chunk (cache group: commonVendor) (name: vendor)
 webpack compiled successfully (e76cbaa5240e788b)
 ```
-You will also have to initially wait when starting the server because it has to build it the first time.
-If you see red errors, like ERR port in use, this is likely because parts of the website were already running, and the port is taken.
-You can run:
-```shell
-start.sh stop
-```
-To kill any process using those ports. Front-dev runs this automatically anyways, but if errors come up try using the stop route. 
-```shell
-start.sh back-dev
-```
-This is similar to front-dev, except it doesn't initially run kill, and it doesn't start the backend server.
-The intended use of this is to start all the other servers except the backend, like nginx, and the frontend HMR server, so you can then use VS Code to start the backend server with the python debugger. 
-Once you run start.sh back-dev, navigate to the label_studio.py file, and run it using the launch config .vscode/launch.json. 
 
-### Rebuilding the front end
-When you are done making changes to label studio, run:
-```shell
+If you see errors like `ERR port in use`, parts of the server are likely already running. Run `./start.sh stop` to clear them. `front-dev` runs this automatically, but manual intervention may still be needed.
+
+---
+
+#### Backend Debugging Mode
+
+```bash
+./start.sh back-dev
+```
+
+This starts:
+
+* NGINX
+* Frontend development server
+
+The backend is **not started**, allowing it to be launched manually through VS Code using `.vscode/launch.json` (included in the repo). This mode does not run the initial kill step that `front-dev` does.
+
+Once `back-dev` is running, open `label_studio.py` in VS Code and run it via the launch config. The launch config sets environment variables that tell the backend to expect a running frontend dev server — see [Frontend Configuration](#configuration) for details.
+
+---
+
+### Stopping Services
+
+```bash
+./start.sh stop
+```
+
+`Ctrl+C` will only stop the process connected to the terminal, which is usually the webpack server. To stop all services including the backend and NGINX, use `./start.sh stop`.
+
+---
+
+### Rebuilding the Frontend
+
+```bash
 ./start.sh build
 ```
-This will compile label studio (it may take around 10 minutes) and store it in `label_studio/core/static_build`.
-Then just run `./start.sh` without any arguments, and it will start label studio and host the static files.
 
-### The DZI Pipeline (convert_to_dzi.py)
+Run this after making frontend changes you want to deploy in production. Compilation typically takes around 10 minutes. Output is written to:
 
-Deep Zoom Images (DZI) are a tiled image format that allows OpenSeadragon to efficiently render huge images by only loading the tiles needed for the current zoom level and viewport.
+```
+label_studio/core/static_build/
+```
 
-To convert images, run:
-```shell
+It is not necessary to delete the static assets before running the build. The command will overwrite them.
+
+After building, start the server with:
+
+```bash
+./start.sh
+```
+
+**Note on caching:** After a rebuild, requests may be served from a cache and return stale assets. See [Known Issues – Static Asset Caching](#static-asset-caching).
+
+---
+
+## 3. System Architecture
+
+### 3.1 NGINX (Entry Point)
+
+NGINX serves as the external interface to the system.
+It takes in the requests from the user, and routes them to the correct destination. It will send the frontend app, the dzi files, the API for server requests, and a few other requests as requested.
+
+* Default port: **8080**
+* Configuration file: `/nginx/conf/nginx.conf`
+* Generated from: `/nginx/conf/nginx.conf.template` when nginx is started via `start.sh`
+
+#### Routing Behavior
+
+The following is a simplified snippet from the config, showing the key routing rules:
+
+```nginx
+location /dzi/ {
+    alias /home/azureuser/label-studio-web-OCDS/dzi/;
+    autoindex off;
+}
+
+location / {
+    absolute_redirect off;
+    send_timeout 90;
+    proxy_pass http://127.0.0.1:8000/;
+}
+```
+
+Requests to `/dzi/` are served directly from the folder on disk where the deep zoomable images are stored. Any request that doesn't match a more specific rule is forwarded to the backend server at port 8000.
+
+---
+
+### 3.2 Backend (Django + uWSGI)
+
+The backend handles the data and logic side of the application. Django processes incoming requests — things like saving annotations, retrieving tasks, uploading files, and logging in. It stores and retrieves information via a SQLite3 database.
+
+#### Runtime
+
+* Development: Django development server (plain Python)
+* Production: `uWSGI` (handles threads, timeouts, and other production concerns)
+
+#### Port
+
+* Runs on `127.0.0.1:8000`
+
+#### Database
+
+The SQLite database is typically located at:
+
+```bash
+sqlite3 ../.local/share/label-studio/label_studio.sqlite3
+```
+
+The database stores projects, tasks, annotations, users, and more. Deletion of this file would result in loss of data. Backing up just this file should be sufficient to backup all the data in the system, except for the actual uploaded images, which will also be in the share/label-studio folder.(configurable)
+
+Direct interaction with the database is **not required for normal operation**. It is primarily useful for debugging, inspecting corrupted data, backups, or manual recovery.
+
+---
+
+### 3.3 Frontend (React + Webpack)
+
+The frontend is a React application bundled with Webpack via yarn.
+
+#### Development Mode
+
+* Runs on: `http://localhost:8010`
+* Supports Hot Module Replacement (HMR)
+
+#### Production Mode
+
+* Compiled into static assets
+* Served via NGINX directly (no frontend server running)
+
+#### Configuration
+
+Depending on how the environment variables are set, it may be served in different ways.
+Here is an example from `.vscode/launch.json`:
+```json
+"env": {
+    "PYTHONPATH": "${workspaceFolder}",
+    "FRONTEND_HMR": "true",
+    "FRONTEND_HOSTNAME": "http://localhost:8010"
+}
+```
+
+* If `FRONTEND_HOSTNAME` is set to an address, the backend expects a running frontend dev server at that address and will not serve static files
+* If `FRONTEND_HOSTNAME` is empty (`""`), the backend serves the static build directly, even if FRONTEND_HMR is set to true
+
+When using `back-dev` or `front-dev`, this config is what causes the system to rely on the yarn dev server rather than pre-built assets.
+
+---
+
+## 4. Image Conversion (Deep Zoom)
+
+Large images must be converted into Deep Zoom Image (DZI) format before use. DZI is a tiled image format that allows OpenSeadragon to efficiently render huge images by only loading the tiles needed for the current zoom level and viewport.
+
+It works by splitting up the images into a index file, and a collection of nested folders with different resolution tiles. The OpenSeaDragon renderer used in the frontend will automatically request the correct tiles to achieve a seamless viewing experience. 
+
+The conversion of images to DZI is handled by a single script: `convert_to_dzi.py` which can be called by start.sh for convenience.
+
+### Usage
+
+```bash
 ./start.sh convert
 ```
-This runs `convert_to_dzi.py`, which grabs images from the `hugeimages/` folder and converts them into DZI format, placing the output into the `dzi/` folder. NGINX then serves these directly (see the `/dzi/` location block in the nginx config above).
 
-The script will skip images that have already been converted, so re-running it is safe and fast. There are two additional flags:
-```shell
+`start.sh` passes any additional arguments directly to `convert_to_dzi.py`. Check that file for the full option set.
+
+By default is has the input directory set to `hugeimages/`, and the output directory set to `dzi/`.
+
+The input argument is the first argument (positional)
+The output argument is specified by the `--output` flag
+
+If an image in the input folder has already been converted and placed in the output direectory, it will be skipped.
+
+---
+
+### Options
+
+Force reconversion of all images, even if a DZI already exists:
+
+```bash
 ./start.sh convert --force
 ```
-Reconverts all images even if a DZI already exists.
-```shell
+
+Delete all existing DZIs without converting anything:
+
+```bash
 ./start.sh convert --clear
 ```
-Deletes all existing DZIs without converting anything. Useful for cleaning up if you need to remove old images.
 
-`start.sh` passes any additional arguments directly to `convert_to_dzi.py`, so if you need to look at the full set of options or run the script directly, you can check that file.
+---
 
-### Setting Up a HugeImage Project
+### Integration
 
-1. Download the images onto the server (likely from OneDrive) and place them into the `hugeimages/` folder.
+Converted images are served directly by NGINX under `/dzi/`. No backend/django involvement is required once conversion is complete.
 
-2. Run the conversion:
-```shell
+---
+
+## 5. Creating a HugeImage Project
+
+### Workflow
+
+I recommend converting the large images to lossy jpeg first, in our use case this turned 1.5GB images to around 100MB images, while still being able to identify the roughly 100px by 100px objects clearly. Note that your browser will still not be able to render the 100MB jpeg, because that 100MB file will get uncompressed and displayed at the original resolution to show it on the screen.
+
+1. Download images onto the server and place them in:
+
+```
+hugeimages/
+```
+
+2. Convert them:
+
+```bash
 ./start.sh convert
 ```
 
 3. In Label Studio, create a new project and select the **HugeImage** template.
 
-4. This should redirect you to the config page. Switch from **View** to **Code** mode to directly edit the configuration XML. Here you can modify properties like labels, colors, default annotation size, etc.
+4. This should redirect to the config page. Switch from **View** to **Code** mode to directly edit the configuration XML. Labels, colors, default annotation size, and other properties can be modified here.
 
-5. You can create the project now and import data later, or go to **Import Data** and import your files before creating the project.
+5. You can create the project immediately and import data later, or go to **Import Data** first.
 
-6. When importing, Label Studio just needs a file with the same name as the image — it could technically be any file. However, **importing the original image is strongly recommended** for two reasons:
-   - It avoids potential naming or lookup issues
-   - If an ML backend is connected and asked for predictions, it gets sent whatever file was imported — so using the original image ensures the ML backend receives the correct data
+---
 
-## Code Specific Information
+### Important: File Import
 
-### Modifying HugeImageModel or HugeImageView
-When using the hugeimage project type, its using HugeImageModel and HugeImageView
-which can be found here:
+It is strongly recommended to import the **original image files**, not placeholder files.
+
+Reasons:
+
+* Prevents filename mismatches that could cause images to not be found
+* Ensures ML backends receive correct data when asked for predictions. The ML backend server is sent whatever file was originally imported, so if a placeholder was used, that placeholder is what the ML backend receives.
+
+---
+
+## 6. Development Notes
+
+### Key Files
+
+#### HugeImage Implementation
+
 ```
-web/libs/editor/src/tags/object/HugeImage/HugeImageView.jsx
-web/libs/editor/src/tags/object/HugeImage/HugeImageModel.jsx
+web/libs/editor/src/tags/object/HugeImage/
+  ├── HugeImageView.jsx
+  └── HugeImageModel.jsx
 ```
 
-HugeImageModel is inheriting from the regular image project type, 
-which can be mostly found here: `web/libs/editor/src/tags/object/Image/Image.js`
-It was likely a mistake to make this inherit from image, and override anything that required it.
-Instead it should have been made from scratch, and instead use the same mixins that Image.js used. Mixins are JavaScript's way of doing multi-inheritance or interfaces.
+#### Base Image Implementation
 
-### Openseadragon and click+drag functionality 
-The OpenSeadragon renderer is capturing all mouse events, except mouse move.
-So if you try to click on the stage, it goes to OpenSeadragon (and not the stage).
-If you click on an object with click and drag functionality, it goes to OpenSeadragon (and not global).
-So one of the things we had to do was essentially resend these events directly when OpenSeadragon captures them.
-If you are trying to modify HugeImageView, and are struggling with events, particularly
-the click and drag or selection, its likely OSD capturing the global events.
+```
+web/libs/editor/src/tags/object/Image/Image.js
+```
 
-### Current Bugs
-- The preview image cant have annotations drawn on it, because the source its getting it from probably has the wrong size.
-- COCO importing doesnt work, the data is bad somehow. Exporting something as label-studio-common-format that was imported as COCO wont fix it. Its possible the label studio SDK conversion could.
-- Sometimes when you delete all the tasks on a project, it causes a crash, though other than the red screen showing the crash, it doesnt do anything else. We can look at the trace when using a breakpoint on caught exceptions, and it seems like its setting actions to do, like delete tasks, delete annotations, then delete projects, and one of these is causing an issue. This might only happen if COCO files are imported, which means it may be the annotation information on those that is broken.
-- Two point click to draw an annotation is disabled, but also a useful feature. It was disabled in `web/libs/editor/src/mixins/DrawingTool.js` by making one of the functions on click for two point just return immediately. It causes a crash — it may be trying to render an in-progress annotation in the wrong parent. The exact cause was not determined.
+---
 
-### Modifying the Columns
+### Architectural Note: HugeImageModel Inheritance
 
-One of the features that was requested was a column for how many regions there were in the task.
-The terms label studio actually uses are "regions" for the boxes, and "annotations"
-as sort of an annotators opinion of the regions of the image, so there can be multiple per image.
-So instead we calculate the average regions per annotation.
-Adding a new column has a few steps, one of which is creating a queryset in the database language to actually fill the column with, and adding the column itself.
+`HugeImageModel` currently inherits from the standard `Image` implementation and overrides behavior as needed. This approach is fragile. A more maintainable design would avoid inheriting from Image entirely and instead reuse the same mixins that `Image.js` uses directly. Mixins are JavaScript's approach to multiple inheritance, and building from them rather than from Image would likely offer some readability improvements. Note that there is also a ImageEntity.js class, which complicates this approach a bit.
+
+---
+
+### OpenSeadragon Event Handling
+
+OpenSeadragon (OSD) intercepts most mouse events (everything except mouse move), and does not give those events to the object originally clicked on. This causes issues with:
+
+* Click handling on the stage
+* Click-and-drag on annotated objects
+* Annotation tool interactions
+
+#### Current Workaround
+
+Events captured by OSD are manually re-dispatched to the appropriate handlers.
+
+#### Debugging Guidance
+
+If UI interactions behave unexpectedly — particularly anything involving click, drag, or selection — assume OSD is intercepting events and inspect event propagation carefully before looking elsewhere.
+
+For instance click and drag is a feature offered by javascript at a more fundamental level, using global event listeners. OSD intercepts these, so click and drag behaves very weirdly. The fix was to manually send a global click event inside the event listener for OSD. 
+Similarly for the stage, we check if the cursor is over a stage object, and if its found we send the event to the object directly.
+
+---
+
+### Modifying Columns
+
+Label Studio uses the term "regions" for bounding boxes and "annotations" for an annotator's full set of regions on an image. You could consider an annotation as an annotators opinion of the regions on an image. This feature is designed for averaging multiple annotators outputs on an image to reduce noise. A request was made for a column that measured number of regions, so a column was added to show the average regions per annotation.
+
+Adding a new column requires two steps: writing a database queryset to populate it, and adding the column definition itself. 
+An incomplete list of relevant files:
+`label-studio-web-OCDS/label_studio/data_manager/functions.py`
+`label-studio-web-OCDS/label_studio/data_manager/serializers.py`
+
+---
+
+## 7. Known Issues
+
+### Preview Annotation Failure
+
+* Cannot draw annotations on preview images
+* Likely caused by incorrect image dimensions being passed to the preview renderer
+* When it was a hardcoded image in the /dzi folder it worked, but that is a bit big to fit in the repo, and that file is restricted access.
+
+---
+
+### COCO Import Issues
+
+* Imported COCO data is malformed in some way
+* Exporting and re-importing does not resolve it
+* Possible workaround: use the Label Studio SDK for conversion prior to import
+* There is code in the data import part to add some coco functionality
+`label-studio-web-OCDS/label_studio/data_import/models.py`
+Its purpose was to import a coco annotation, and from that automatically generate the config for the task, and show it to the user in a modal.
+
+---
+
+### Project Deletion Crash
+
+* Occurs when deleting the last task in a project
+* Produces a red error screen but does not appear to cause further damage
+* Likely caused by a sequencing issue in the deletion order (tasks → annotations → project)
+* May be triggered specifically by projects with corrupted COCO-imported data
+
+---
+
+### Two-Click Annotation Disabled
+
+File:
+
+```
+web/libs/editor/src/mixins/DrawingTool.js
+```
+
+The two-point click-to-draw annotation feature was intentionally disabled by making the relevant click handler return immediately. When enabled, it causes a crash. The suspected cause is that an in-progress annotation is being rendered in the wrong parent context. The exact cause was not able to be determined. It was a good feature but the crash message is very unclear as to what actually happens. It is only disabled / crashes for HugeImage projects.
+
+---
+
+### Static Asset Caching
+
+After running `./start.sh build`, requests may be intercepted by an unidentified caching mechanism and return stale assets instead of the newly built ones. The source of this caching has not been identified. It is not NGINX, the browser cache, or the VM itself.
+
+* Not resolved by resetting browser caches, restarting the machine, or restarting the VM
+* Appears to resolve on its own after roughly a day
+* The browsers support a cache=false flag, there is a small chance this would help if the network also supported the flag. Its possible that this could be attached to the responses at the nginx config file.
+
+---
