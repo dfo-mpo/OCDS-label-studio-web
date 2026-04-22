@@ -392,7 +392,12 @@ const Model = types
      * @return {object}
      */
     states() {
-      return self.annotation.toNames.get(self.name);
+      if(self.annotation) {
+        return self.annotation?.toNames.get(self.name);
+      }
+      else { 
+        return null;
+      }
     },
 
     activeStates() {

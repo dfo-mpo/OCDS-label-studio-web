@@ -432,7 +432,7 @@ case "${1:-start}" in
         cd "$LABEL_STUDIO_DIR" || { print_error "Label Studio directory not found: $LABEL_STUDIO_DIR"; exit 1; }
         
         print_status "Collecting static files with Django..."
-        poetry run python manage.py collectstatic --no-input --clear
+        poetry run python manage.py collectstatic --no-input #--clear
         
         print_success "Frontend build and static collection completed"
     ;;
