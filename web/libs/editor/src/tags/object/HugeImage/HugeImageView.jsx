@@ -474,7 +474,8 @@ export default observer(
       const name = filename.substring(0, filename.lastIndexOf("."));
 
       console.log("Opening currentSrc: ", item.currentSrc)
-      var tileSource = `http://20.220.26.156:8080/dzi/${name}.dzi`
+      const tileSource = new URL(`/dzi/${name}.dzi`, window.location.origin).href;
+      // var tileSource = `http://20.220.26.156:8080/dzi/${name}.dzi`
 
       if(item.currentSrc == "Sample: Header text"){
         tileSource = "https://openseadragon.github.io/example-images/highsmith/highsmith.js"
